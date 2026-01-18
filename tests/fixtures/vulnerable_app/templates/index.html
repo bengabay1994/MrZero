@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Vulnerable App</title>
+</head>
+<body>
+    <h1>Welcome to Vulnerable App</h1>
+    
+    <!-- VULNERABILITY: Stored XSS - Comment is rendered without escaping -->
+    {% if comment %}
+    <div class="comment">
+        <!-- VULNERABLE: Using |safe bypasses auto-escaping -->
+        {{ comment|safe }}
+    </div>
+    {% endif %}
+    
+    <!-- VULNERABILITY: DOM-based XSS -->
+    <script>
+        // VULNERABLE: innerHTML with user input from URL
+        var name = new URLSearchParams(window.location.search).get('name');
+        if (name) {
+            document.getElementById('greeting').innerHTML = 'Hello, ' + name + '!';
+        }
+        
+        // VULNERABLE: eval with user input
+        var calc = new URLSearchParams(window.location.search).get('calc');
+        if (calc) {
+            try {
+                var result = eval(calc);
+                document.getElementById('result').innerText = 'Result: ' + result;
+            } catch(e) {
+                document.getElementById('result').innerText = 'Error';
+            }
+        }
+        
+        // VULNERABLE: document.write with user input
+        var msg = new URLSearchParams(window.location.search).get('msg');
+        if (msg) {
+            document.write('<p>' + msg + '</p>');
+        }
+    </script>
+    
+    <div id="greeting"></div>
+    <div id="result"></div>
+    
+    <h2>Search Users</h2>
+    <form action="/search" method="get">
+        <input type="text" name="q" placeholder="Search...">
+        <button type="submit">Search</button>
+    </form>
+    
+    <h2>Ping Host</h2>
+    <form action="/ping" method="get">
+        <input type="text" name="host" placeholder="hostname">
+        <button type="submit">Ping</button>
+    </form>
+    
+    <h2>Post Comment</h2>
+    <form action="/comment" method="post">
+        <!-- VULNERABLE: No CSRF token -->
+        <textarea name="comment" placeholder="Your comment..."></textarea>
+        <button type="submit">Submit</button>
+    </form>
+    
+    <h2>Fetch URL</h2>
+    <form action="/fetch" method="get">
+        <input type="text" name="url" placeholder="URL to fetch">
+        <button type="submit">Fetch</button>
+    </form>
+    
+    <!-- VULNERABLE: Sensitive information in HTML comment -->
+    <!-- Admin credentials: admin / admin123 -->
+    <!-- API endpoint: /api/v1/internal -->
+    
+    <!-- VULNERABLE: Inline event handler with user data -->
+    <button onclick="alert('{{ comment }}')">Show Comment</button>
+    
+</body>
+</html>
