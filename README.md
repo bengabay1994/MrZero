@@ -7,7 +7,7 @@
 |  \/  | _ _ |_  / ___  _ _  ___ 
 | |\/| || '_| / / / -_)| '_|/ _ \
 |_|  |_||_|  /___|\___||_|  \___/
-
+                                 
 Autonomous AI Bug Bounty CLI
 ```
 
@@ -562,13 +562,6 @@ uv run ruff check mrzero --fix
 # Type checking
 uv run mypy mrzero
 ```
-
----
-
-## License
-
-MIT License - see [LICENSE](LICENSE) for details.
-
 ---
 
 ## Disclaimer
