@@ -562,13 +562,6 @@ uv run ruff check mrzero --fix
 # Type checking
 uv run mypy mrzero
 ```
-
----
-
-## License
-
-MIT License - see [LICENSE](LICENSE) for details.
-
 ---
 
 ## Disclaimer
