@@ -3,12 +3,11 @@
 **Autonomous AI Bug Bounty CLI** - A local, command-line tool that autonomously analyzes codebases for security vulnerabilities, sets up reproduction environments, and generates weaponized exploits.
 
 ```
-  __  __     _____                
- |  \/  |   |__  /__ _ _ __ ___   
- | |\/| |r    / // _ \ '__/ _ \  
- | |  | |   / /|  __/ | | (_) | 
- |_|  |_|  /____\___|_|  \___/  
-
+ __  __       ____               
+|  \/  | _ _ |_  / ___  _ _  ___ 
+| |\/| || '_| / / / -_)| '_|/ _ \
+|_|  |_||_|  /___|\___||_|  \___/
+                                 
 Autonomous AI Bug Bounty CLI
 ```
 
