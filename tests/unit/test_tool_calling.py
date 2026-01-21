@@ -385,9 +385,10 @@ class TestSecurityToolRegistry:
             assert "description" in tool["toolSpec"]
             assert "inputSchema" in tool["toolSpec"]
 
-    def test_get_available_tools(self):
+    @pytest.mark.asyncio
+    async def test_get_available_tools(self):
         """Test getting available tools."""
-        available = get_available_tools()
+        available = await get_available_tools()
 
         # Built-in tools should always be available
         assert "read_file" in available

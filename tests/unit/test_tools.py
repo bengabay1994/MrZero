@@ -19,14 +19,15 @@ class TestOpengrepTool:
     @pytest.mark.asyncio
     async def test_unavailable_tool_returns_error(self, temp_dir):
         """Test that unavailable tool returns appropriate error."""
-        tool = OpengrepTool()
-        # Force tool to be unavailable
+        tool = OpengrepTool(use_docker=False)
+        # Force tool to be unavailable (both local and docker)
         tool._available = False
+        tool._docker_available = False
 
         result = await tool.run(str(temp_dir))
 
         assert result.success is False
-        assert "not installed" in result.error.lower()
+        assert "not available" in result.error.lower() or "not installed" in result.error.lower()
 
 
 class TestGitleaksTool:

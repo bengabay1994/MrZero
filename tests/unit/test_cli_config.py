@@ -160,25 +160,17 @@ class TestFirstRun:
 
 
 class TestToolsCommand:
-    """Tests for 'mrzero tools' command."""
+    """Tests for 'mrzero tools' command group.
 
-    def test_tools_command_runs(self, mock_config):
-        """Test tools command executes."""
-        result = runner.invoke(app, ["tools"])
-        # May have non-zero exit if tools aren't installed, that's OK
-        # Just verify it doesn't crash
-        assert (
-            "Security Tool" in result.output or "SAST" in result.output or "Tool" in result.output
-        )
+    Note: The tools command is now a subcommand group (tools list, tools check, etc.)
+    Detailed tests are in test_tools_cmd.py.
+    """
 
-    def test_tools_command_shows_categories(self, mock_config):
-        """Test tools command shows tool categories."""
-        result = runner.invoke(app, ["tools"])
-        # Should show at least one category
-        assert any(
-            cat in result.output
-            for cat in ["SAST", "Binary", "Exploitation", "Debugging", "Language"]
-        )
+    def test_tools_help_runs(self, mock_config):
+        """Test tools --help shows subcommands."""
+        result = runner.invoke(app, ["tools", "--help"])
+        assert result.exit_code == 0
+        assert "list" in result.output.lower() or "status" in result.output.lower()
 
 
 class TestMrZeroConfigModel:

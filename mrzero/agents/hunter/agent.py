@@ -259,18 +259,127 @@ Do NOT miss real vulnerabilities, but also don't report obvious false positives.
         """Run SAST tools to gather findings (as hints for LLM).
 
         These findings are NOT decisions - they're hints for the LLM to consider.
+        Uses the unified ToolsService which routes to Docker/Local/MCP backends.
 
         Args:
             target_path: Path to the target codebase.
 
         Returns:
-            List of SASTFinding objects.
+            List of SASTFinding objects (or tool results converted to findings).
         """
         try:
-            from mrzero.core.sast_runner import SASTRunner
+            from mrzero.core.tools_service import get_initialized_tools_service
+            from mrzero.core.sast_runner import SASTFinding
 
-            runner = SASTRunner(target_path)
-            return await runner.run_all_available()
+            # Get initialized tools service
+            tools_service = await get_initialized_tools_service()
+
+            # Run all available SAST/secret/dependency tools
+            results = await tools_service.run_all_sast(target_path)
+
+            # Convert tool results to SASTFinding objects for compatibility
+            findings = []
+            for result in results:
+                if not result.success or not result.output:
+                    continue
+
+                # Parse results based on tool
+                if result.tool == "opengrep" and isinstance(result.output, dict):
+                    for item in result.output.get("results", []):
+                        findings.append(
+                            SASTFinding(
+                                rule_id=item.get("check_id", "unknown"),
+                                message=item.get("extra", {}).get("message", ""),
+                                severity=item.get("extra", {}).get("severity", "WARNING"),
+                                file_path=item.get("path", ""),
+                                line_start=item.get("start", {}).get("line", 0),
+                                line_end=item.get("end", {}).get("line", 0),
+                                code_snippet=item.get("extra", {}).get("lines", ""),
+                                tool="opengrep",
+                                metadata=item.get("extra", {}).get("metadata", {}),
+                            )
+                        )
+
+                elif result.tool == "gitleaks" and isinstance(result.output, list):
+                    for item in result.output:
+                        findings.append(
+                            SASTFinding(
+                                rule_id=item.get("RuleID", "secret"),
+                                message=f"Secret detected: {item.get('Description', 'Unknown secret')}",
+                                severity="HIGH",
+                                file_path=item.get("File", ""),
+                                line_start=item.get("StartLine", 0),
+                                line_end=item.get("EndLine", 0),
+                                code_snippet=item.get("Secret", "")[:50] + "...",
+                                tool="gitleaks",
+                                metadata={
+                                    "entropy": item.get("Entropy", 0),
+                                    "match": item.get("Match", ""),
+                                },
+                            )
+                        )
+
+                elif result.tool == "trivy" and isinstance(result.output, dict):
+                    for trivy_result in result.output.get("Results", []):
+                        target = trivy_result.get("Target", "")
+                        for vuln in trivy_result.get("Vulnerabilities", []) or []:
+                            findings.append(
+                                SASTFinding(
+                                    rule_id=vuln.get("VulnerabilityID", "unknown"),
+                                    message=vuln.get("Title", "") or vuln.get("Description", ""),
+                                    severity=vuln.get("Severity", "UNKNOWN"),
+                                    file_path=target,
+                                    line_start=0,
+                                    line_end=0,
+                                    code_snippet=f"{vuln.get('PkgName', '')}@{vuln.get('InstalledVersion', '')}",
+                                    tool="trivy",
+                                    metadata={
+                                        "cve": vuln.get("VulnerabilityID", ""),
+                                        "fixed_version": vuln.get("FixedVersion", ""),
+                                    },
+                                )
+                            )
+
+                elif result.tool == "slither" and isinstance(result.output, dict):
+                    for detector in result.output.get("results", {}).get("detectors", []):
+                        elements = detector.get("elements", [])
+                        first_element = elements[0] if elements else {}
+                        findings.append(
+                            SASTFinding(
+                                rule_id=detector.get("check", "unknown"),
+                                message=detector.get("description", ""),
+                                severity=detector.get("impact", "Medium").upper(),
+                                file_path=first_element.get("source_mapping", {}).get(
+                                    "filename_relative", ""
+                                ),
+                                line_start=first_element.get("source_mapping", {}).get(
+                                    "lines", [0]
+                                )[0],
+                                line_end=first_element.get("source_mapping", {}).get("lines", [0])[
+                                    -1
+                                ]
+                                if first_element.get("source_mapping", {}).get("lines")
+                                else 0,
+                                code_snippet="",
+                                tool="slither",
+                                metadata={
+                                    "confidence": detector.get("confidence", ""),
+                                    "elements": len(elements),
+                                },
+                            )
+                        )
+
+            return findings
+
+        except ImportError:
+            # Fallback to legacy SASTRunner if ToolsService not available
+            try:
+                from mrzero.core.sast_runner import SASTRunner
+
+                runner = SASTRunner(target_path)
+                return await runner.run_all_available()
+            except Exception:
+                return []
         except Exception:
             return []
 

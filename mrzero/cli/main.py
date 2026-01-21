@@ -17,6 +17,8 @@ from mrzero import __version__
 from mrzero.core.config import MrZeroConfig, get_config, set_config
 from mrzero.core.schemas import ExecutionMode
 from mrzero.cli.commands.docker_cmd import docker_app
+from mrzero.cli.commands.mcp_cmd import mcp_app
+from mrzero.cli.commands.tools_cmd import tools_app
 
 app = typer.Typer(
     name="mrzero",
@@ -342,6 +344,12 @@ app.add_typer(config_app, name="config")
 # Docker toolbox commands
 app.add_typer(docker_app, name="docker")
 
+# MCP server commands
+app.add_typer(mcp_app, name="mcp")
+
+# Unified tools commands
+app.add_typer(tools_app, name="tools")
+
 
 @config_app.command("show")
 def config_show() -> None:
@@ -531,73 +539,6 @@ def config_legacy(
         config_show()
     elif reset:
         config_reset()
-
-
-@app.command()
-def tools() -> None:
-    """Check installed security tools and their status."""
-    print_banner()
-
-    console.print("\n[bold]Security Tool Status[/bold]\n")
-
-    tools_to_check = {
-        "SAST Tools": [
-            ("opengrep", "opengrep --version"),
-            ("codeql", "codeql --version"),
-            ("joern", "joern --version"),
-            ("gitleaks", "gitleaks version"),
-            ("bearer", "bearer version"),
-            ("trivy", "trivy --version"),
-        ],
-        "Language Analysis": [
-            ("tree-sitter", "tree-sitter --version"),
-            ("linguist", "github-linguist --version"),
-        ],
-        "Binary Analysis": [
-            ("ghidra", "ghidraRun --help"),
-            ("radare2", "r2 -v"),
-            ("binwalk", "binwalk --help"),
-        ],
-        "Exploitation": [
-            ("pwntools", "python3 -c 'import pwn; print(pwn.version)'"),
-            ("ropgadget", "ROPgadget --version"),
-            ("metasploit", "msfconsole --version"),
-        ],
-        "Debugging": [
-            ("gdb", "gdb --version"),
-            ("pwndbg", "python3 -c 'import pwndbg'"),
-        ],
-        "Fuzzing": [
-            ("afl++", "afl-fuzz --help"),
-        ],
-    }
-
-    import subprocess
-
-    for category, tool_list in tools_to_check.items():
-        table = Table(title=category, show_header=True, header_style="bold")
-        table.add_column("Tool", style="cyan")
-        table.add_column("Status")
-        table.add_column("Version/Info", style="dim")
-
-        for tool_name, check_cmd in tool_list:
-            try:
-                result = subprocess.run(
-                    check_cmd.split(),
-                    capture_output=True,
-                    text=True,
-                    timeout=5,
-                )
-                if result.returncode == 0:
-                    version = result.stdout.strip().split("\n")[0][:50]
-                    table.add_row(tool_name, "[green]Installed[/green]", version)
-                else:
-                    table.add_row(tool_name, "[red]Not Found[/red]", "-")
-            except (subprocess.TimeoutExpired, FileNotFoundError, Exception):
-                table.add_row(tool_name, "[red]Not Found[/red]", "-")
-
-        console.print(table)
-        console.print()
 
 
 @app.command()

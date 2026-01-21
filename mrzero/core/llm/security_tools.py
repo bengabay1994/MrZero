@@ -2,10 +2,11 @@
 
 This module provides tool definitions that can be used with LLM function calling.
 Each tool is defined with its parameters and an executor that bridges to the
-actual tool implementations in mrzero.tools.
+unified ToolsService for actual execution.
 """
 
 import json
+from pathlib import Path
 from typing import Any
 
 from mrzero.core.llm.tool_calling import (
@@ -15,14 +16,20 @@ from mrzero.core.llm.tool_calling import (
     ToolRegistry,
     ToolResult,
 )
-from mrzero.tools import (
-    OpengrepTool,
-    GitleaksTool,
-    TrivyTool,
-    BinwalkTool,
-    StringsTool,
-    ROPgadgetTool,
-)
+
+
+# Lazy-loaded tools service
+_tools_service = None
+
+
+async def _get_tools_service():
+    """Get initialized tools service (lazy loading)."""
+    global _tools_service
+    if _tools_service is None:
+        from mrzero.core.tools_service import get_initialized_tools_service
+
+        _tools_service = await get_initialized_tools_service()
+    return _tools_service
 
 
 def create_security_tool_registry() -> ToolRegistry:
@@ -62,34 +69,43 @@ Returns findings with file paths, line numbers, and vulnerability descriptions."
                 required=True,
             ),
             ToolParameter(
-                name="rules_path",
-                description="Optional path to custom rules file or directory. If not specified, uses default security rules.",
+                name="config",
+                description="Optional config or rules path. If not specified, uses 'auto' for default security rules.",
                 type=ToolParameterType.STRING,
                 required=False,
             ),
         ],
     )
 
-    async def executor(tool_call_id: str, target: str, rules_path: str | None = None) -> ToolResult:
-        tool = OpengrepTool()
-        if not tool.is_available():
+    async def executor(tool_call_id: str, target: str, config: str | None = None) -> ToolResult:
+        service = await _get_tools_service()
+
+        if not service.is_tool_available("opengrep"):
             return ToolResult(
                 tool_call_id=tool_call_id,
                 name="opengrep_scan",
                 success=False,
                 output="",
-                error="Opengrep is not installed on this system",
+                error="Opengrep is not available. Install locally or run 'mrzero docker pull' for Docker support.",
             )
 
-        result = await tool.run(target=target, rules_path=rules_path)
+        result = await service.run_sast("opengrep", Path(target), config=config)
 
-        return ToolResult(
-            tool_call_id=tool_call_id,
-            name="opengrep_scan",
-            success=result.success,
-            output=json.dumps(result.data, indent=2) if result.success else "",
-            error=result.error,
-        )
+        if result.success and result.output:
+            return ToolResult(
+                tool_call_id=tool_call_id,
+                name="opengrep_scan",
+                success=True,
+                output=json.dumps(result.output, indent=2),
+            )
+        else:
+            return ToolResult(
+                tool_call_id=tool_call_id,
+                name="opengrep_scan",
+                success=False,
+                output="",
+                error=result.error or "Opengrep scan failed",
+            )
 
     registry.register(definition, executor)
 
@@ -112,8 +128,9 @@ Returns findings with file paths, line numbers, and secret types.""",
     )
 
     async def executor(tool_call_id: str, target: str) -> ToolResult:
-        tool = GitleaksTool()
-        if not tool.is_available():
+        service = await _get_tools_service()
+
+        if not service.is_tool_available("gitleaks"):
             return ToolResult(
                 tool_call_id=tool_call_id,
                 name="gitleaks_scan",
@@ -122,15 +139,25 @@ Returns findings with file paths, line numbers, and secret types.""",
                 error="Gitleaks is not installed on this system",
             )
 
-        result = await tool.run(target=target)
+        result = await service.run_secret_scan("gitleaks", Path(target))
 
-        return ToolResult(
-            tool_call_id=tool_call_id,
-            name="gitleaks_scan",
-            success=result.success,
-            output=json.dumps(result.data, indent=2) if result.success else "",
-            error=result.error,
-        )
+        if result.success and result.output is not None:
+            return ToolResult(
+                tool_call_id=tool_call_id,
+                name="gitleaks_scan",
+                success=True,
+                output=json.dumps(result.output, indent=2)
+                if isinstance(result.output, (dict, list))
+                else str(result.output),
+            )
+        else:
+            return ToolResult(
+                tool_call_id=tool_call_id,
+                name="gitleaks_scan",
+                success=False,
+                output="",
+                error=result.error or "Gitleaks scan failed",
+            )
 
     registry.register(definition, executor)
 
@@ -149,20 +176,13 @@ Returns findings with CVE IDs, severity levels, and affected packages.""",
                 type=ToolParameterType.STRING,
                 required=True,
             ),
-            ToolParameter(
-                name="scan_type",
-                description="Type of scan: 'fs' for filesystem, 'image' for container images",
-                type=ToolParameterType.STRING,
-                required=False,
-                default="fs",
-                enum=["fs", "image", "config"],
-            ),
         ],
     )
 
-    async def executor(tool_call_id: str, target: str, scan_type: str = "fs") -> ToolResult:
-        tool = TrivyTool()
-        if not tool.is_available():
+    async def executor(tool_call_id: str, target: str) -> ToolResult:
+        service = await _get_tools_service()
+
+        if not service.is_tool_available("trivy"):
             return ToolResult(
                 tool_call_id=tool_call_id,
                 name="trivy_scan",
@@ -171,21 +191,35 @@ Returns findings with CVE IDs, severity levels, and affected packages.""",
                 error="Trivy is not installed on this system",
             )
 
-        result = await tool.run(target=target, scan_type=scan_type)
+        result = await service.run_dependency_scan("trivy", Path(target))
 
-        return ToolResult(
-            tool_call_id=tool_call_id,
-            name="trivy_scan",
-            success=result.success,
-            output=json.dumps(result.data, indent=2) if result.success else "",
-            error=result.error,
-        )
+        if result.success and result.output is not None:
+            return ToolResult(
+                tool_call_id=tool_call_id,
+                name="trivy_scan",
+                success=True,
+                output=json.dumps(result.output, indent=2)
+                if isinstance(result.output, (dict, list))
+                else str(result.output),
+            )
+        else:
+            return ToolResult(
+                tool_call_id=tool_call_id,
+                name="trivy_scan",
+                success=False,
+                output="",
+                error=result.error or "Trivy scan failed",
+            )
 
     registry.register(definition, executor)
 
 
 def _register_binwalk(registry: ToolRegistry) -> None:
-    """Register the Binwalk tool."""
+    """Register the Binwalk tool.
+
+    Note: Binwalk is not yet integrated into ToolsService.
+    Falls back to direct tool wrapper.
+    """
     definition = ToolDefinition(
         name="binwalk_analyze",
         description="""Run Binwalk to analyze binary files for embedded content and firmware signatures.
@@ -209,6 +243,9 @@ Useful for analyzing firmware, binary executables, and compiled files.""",
     )
 
     async def executor(tool_call_id: str, target: str, extract: bool = False) -> ToolResult:
+        # Binwalk not yet in ToolsService, use direct wrapper
+        from mrzero.tools import BinwalkTool
+
         tool = BinwalkTool()
         if not tool.is_available():
             return ToolResult(
@@ -233,7 +270,11 @@ Useful for analyzing firmware, binary executables, and compiled files.""",
 
 
 def _register_strings(registry: ToolRegistry) -> None:
-    """Register the Strings tool."""
+    """Register the Strings tool.
+
+    Note: Strings is not yet integrated into ToolsService.
+    Falls back to direct tool wrapper.
+    """
     definition = ToolDefinition(
         name="strings_extract",
         description="""Extract printable strings from binary files.
@@ -257,6 +298,8 @@ Useful for reverse engineering and finding hardcoded values.""",
     )
 
     async def executor(tool_call_id: str, target: str, min_length: int = 4) -> ToolResult:
+        from mrzero.tools import StringsTool
+
         tool = StringsTool()
         if not tool.is_available():
             return ToolResult(
@@ -281,7 +324,11 @@ Useful for reverse engineering and finding hardcoded values.""",
 
 
 def _register_ropgadget(registry: ToolRegistry) -> None:
-    """Register the ROPgadget tool."""
+    """Register the ROPgadget tool.
+
+    Note: ROPgadget is not yet integrated into ToolsService.
+    Falls back to direct tool wrapper.
+    """
     definition = ToolDefinition(
         name="ropgadget_find",
         description="""Find ROP gadgets in binary executables for exploit development.
@@ -298,6 +345,8 @@ Returns gadgets with their addresses and assembly instructions.""",
     )
 
     async def executor(tool_call_id: str, target: str) -> ToolResult:
+        from mrzero.tools import ROPgadgetTool
+
         tool = ROPgadgetTool()
         if not tool.is_available():
             return ToolResult(
@@ -357,8 +406,6 @@ Returns the file contents with line numbers.""",
         start_line: int = 1,
         end_line: int | None = None,
     ) -> ToolResult:
-        from pathlib import Path
-
         path = Path(file_path)
         if not path.exists():
             return ToolResult(
@@ -459,8 +506,6 @@ Returns file paths relative to the directory.""",
         pattern: str = "*",
         recursive: bool = True,
     ) -> ToolResult:
-        from pathlib import Path
-
         path = Path(directory)
         if not path.exists():
             return ToolResult(
@@ -555,7 +600,6 @@ Returns matching files with line numbers and context.""",
         file_pattern: str = "*",
     ) -> ToolResult:
         import re
-        from pathlib import Path
 
         path = Path(directory)
         if not path.exists():
@@ -638,27 +682,35 @@ Returns matching files with line numbers and context.""",
     registry.register(definition, executor)
 
 
-# Convenience function to get available tools
-def get_available_tools() -> list[str]:
+async def get_available_tools() -> list[str]:
     """Get list of available security tools on this system.
 
     Returns:
         List of tool names that are installed and available.
     """
+    service = await _get_tools_service()
     available = []
 
-    tools = [
-        ("opengrep_scan", OpengrepTool()),
-        ("gitleaks_scan", GitleaksTool()),
-        ("trivy_scan", TrivyTool()),
-        ("binwalk_analyze", BinwalkTool()),
-        ("strings_extract", StringsTool()),
-        ("ropgadget_find", ROPgadgetTool()),
+    # Check tools via ToolsService
+    tool_mappings = [
+        ("opengrep_scan", "opengrep"),
+        ("gitleaks_scan", "gitleaks"),
+        ("trivy_scan", "trivy"),
     ]
 
-    for name, tool in tools:
-        if tool.is_available():
-            available.append(name)
+    for tool_name, service_name in tool_mappings:
+        if service.is_tool_available(service_name):
+            available.append(tool_name)
+
+    # Check remaining tools directly (not yet in ToolsService)
+    from mrzero.tools import BinwalkTool, StringsTool, ROPgadgetTool
+
+    if BinwalkTool().is_available():
+        available.append("binwalk_analyze")
+    if StringsTool().is_available():
+        available.append("strings_extract")
+    if ROPgadgetTool().is_available():
+        available.append("ropgadget_find")
 
     # These are always available (built-in)
     available.extend(["read_file", "list_files", "search_code"])

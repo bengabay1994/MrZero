@@ -12,9 +12,25 @@
 Autonomous AI Bug Bounty CLI
 ```
 
+## Table of Contents
+
+- [Features](#features)
+- [Prerequisites](#prerequisites)
+- [Installation](#installation)
+- [Getting Started](#getting-started)
+- [Supported Tools](#supported-tools)
+- [CLI Commands](#cli-commands)
+- [Examples](#examples)
+- [Configuration](#configuration)
+- [Architecture](#architecture)
+- [Safety & Ethics](#safety--ethics)
+- [Troubleshooting](#troubleshooting)
+
+---
+
 ## Features
 
-- **Multi-Agent Architecture**: Six specialized AI agents working in concert
+- **Multi-Agent Architecture**: Six specialized AI agents working in concert:
   - **MrZeroMapper**: Attack surface analysis and technology fingerprinting
   - **MrZeroVulnHunter**: Static analysis vulnerability detection (SAST)
   - **MrZeroVerifier**: False positive filtering with taint analysis
@@ -23,344 +39,538 @@ Autonomous AI Bug Bounty CLI
   - **MrZeroConclusion**: Professional security report generation
 
 - **Dual Execution Modes**:
+  - **HITL Mode**: Human-in-the-loop with confirmation prompts (recommended)
   - **YOLO Mode**: Fully autonomous operation
-  - **HITL Mode**: Human-in-the-loop with confirmation prompts
 
 - **Smart Caching**: SQLite-based tool output caching to avoid redundant scans
-
 - **Semantic Code Search**: Vector database (ChromaDB) for RAG-powered code understanding
-
 - **Session Management**: Pause and resume long-running scans
+- **MCP Integration**: Connect to external tools via Model Context Protocol
 
-## Supported LLM Providers
-
-MrZero currently supports two LLM providers:
-
-| Provider | Authentication | Models |
-|----------|----------------|--------|
-| **AWS Bedrock** | AWS credentials (IAM/SSO) | Claude 3.5, Nova, Llama 3.1 |
-| **Google Gemini** | OAuth (browser-based) | Gemini 2.0, 1.5 Pro/Flash |
+---
 
 ## Prerequisites
 
-- **Python 3.11+**
-- **uv** (recommended) or pip
-- One of the supported LLM providers configured
+### Required
 
-### Optional Security Tools
+| Requirement | Version | Notes |
+|-------------|---------|-------|
+| **Python** | 3.11+ | 3.12 recommended |
+| **UV** | Latest | Package manager (recommended over pip) |
+| **LLM Provider** | - | AWS Bedrock or Google Gemini |
 
-For enhanced scanning, install these tools:
+### LLM Provider Setup
 
-- [Semgrep](https://semgrep.dev/) - Static analysis
-- [Gitleaks](https://github.com/gitleaks/gitleaks) - Secret detection
-- [Trivy](https://trivy.dev/) - Vulnerability scanner
-- [Slither](https://github.com/crytic/slither) - Solidity analyzer (for smart contracts)
+MrZero requires an LLM provider. Choose one:
+
+#### Option 1: AWS Bedrock (Recommended)
+
+1. Configure AWS credentials:
+   ```bash
+   # Using AWS CLI
+   aws configure
+   
+   # Or using AWS SSO
+   aws configure sso
+   aws sso login --profile your-profile
+   ```
+
+2. Enable Claude models in [AWS Bedrock Console](https://console.aws.amazon.com/bedrock/)
+
+3. Set environment variables (if not using AWS CLI):
+   ```bash
+   export AWS_ACCESS_KEY_ID="your-access-key"
+   export AWS_SECRET_ACCESS_KEY="your-secret-key"
+   export AWS_REGION="us-east-1"
+   ```
+
+#### Option 2: Google Gemini
+
+1. Run MrZero auth command:
+   ```bash
+   mrzero auth login
+   ```
+2. Follow the OAuth flow in your browser
+
+---
 
 ## Installation
 
-### Using uv (Recommended)
+### Using UV (Recommended)
 
 ```bash
 # Clone the repository
 git clone https://github.com/yourusername/MrZero.git
 cd MrZero
 
-# Create virtual environment and install dependencies
+# Create virtual environment and install
 uv venv
-source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+source .venv/bin/activate  # Windows: .venv\Scripts\activate
 
 # Install with your preferred LLM provider
-uv pip install -e ".[aws]"      # For AWS Bedrock
-uv pip install -e ".[google]"   # For Google Gemini
-uv pip install -e ".[all-providers]"  # For all providers
+uv pip install -e ".[aws]"           # For AWS Bedrock
+uv pip install -e ".[google]"        # For Google Gemini
+uv pip install -e ".[all-providers]" # For all providers
 
-# Install development dependencies (optional)
-uv pip install -e ".[dev]"
+# Verify installation
+mrzero --version
 ```
 
 ### Using pip
 
 ```bash
-# Clone the repository
 git clone https://github.com/yourusername/MrZero.git
 cd MrZero
-
-# Create virtual environment
 python -m venv .venv
 source .venv/bin/activate
-
-# Install
 pip install -e ".[all-providers]"
 ```
 
-## Authentication Setup
+---
 
-### Option 1: AWS Bedrock
+## Getting Started
 
-AWS Bedrock requires AWS credentials. You can configure them in several ways:
+### 1. First Run - Onboarding
 
-#### Using AWS CLI
-
-```bash
-# Configure AWS credentials
-aws configure
-
-# Or use AWS SSO
-aws configure sso
-aws sso login --profile your-profile
-```
-
-#### Using Environment Variables
+On first run, MrZero will guide you through setup:
 
 ```bash
-export AWS_ACCESS_KEY_ID="your-access-key"
-export AWS_SECRET_ACCESS_KEY="your-secret-key"
-export AWS_REGION="us-east-1"  # or your preferred region
-
-# Optional: specify a profile
-export AWS_PROFILE="your-profile"
-```
-
-#### Enable Bedrock Models
-
-Make sure you have enabled the models you want to use in the [AWS Bedrock Console](https://console.aws.amazon.com/bedrock/).
-
-### Option 2: Google Gemini (OAuth)
-
-Google Gemini uses OAuth authentication similar to [gemini-cli](https://github.com/google-gemini/gemini-cli):
-
-```bash
-# Authenticate with Google
-mrzero auth login
-
-# Select Google Gemini when prompted
-# A browser window will open for OAuth consent
+mrzero scan ./your-project --mode hitl
 ```
 
 This will:
-1. Open your browser for Google OAuth consent
-2. Create a local token file at `~/.mrzero/.mrzero_google_token.json`
-3. Automatically refresh tokens as needed
+- Check for installed security tools
+- Configure your LLM provider
+- Save your preferences
+
+### 2. Basic Scan
+
+```bash
+# Scan with human confirmation at each step (recommended for first use)
+mrzero scan ./target-codebase --mode hitl
+
+# Scan in autonomous mode
+mrzero scan ./target-codebase --mode yolo
+
+# Specify output directory
+mrzero scan ./target-codebase --output ./reports
+```
+
+### 3. Check Tool Status
+
+```bash
+# See all available tools
+mrzero tools list
+
+# Get detailed status
+mrzero tools status
+```
+
+### 4. View Results
+
+After a scan completes, find your report at:
+- `~/.mrzero/output/security_report_TIMESTAMP.md` (Markdown report)
+- `~/.mrzero/output/security_report_TIMESTAMP.json` (JSON data)
+
+---
+
+## Supported Tools
+
+MrZero integrates with various security tools. **None are strictly required**, but having them improves scan quality.
+
+### SAST & Code Analysis
+
+| Tool | Purpose | Install |
+|------|---------|---------|
+| **Opengrep** | SAST scanner (Semgrep-compatible) | Via Docker (automatic) or [opengrep.dev](https://opengrep.dev) |
+| **Gitleaks** | Secret/credential detection | `brew install gitleaks` or [GitHub](https://github.com/gitleaks/gitleaks) |
+| **Trivy** | Vulnerability scanner | `brew install trivy` or [aquasecurity.github.io](https://aquasecurity.github.io/trivy) |
+
+### Smart Contract Analysis
+
+| Tool | Purpose | Install |
+|------|---------|---------|
+| **Slither** | Solidity static analysis | `pip install slither-analyzer` |
+| **Mythril** | EVM bytecode analysis | `pip install mythril` |
+
+### Binary Analysis (via MCP)
+
+| Tool | Purpose | Notes |
+|------|---------|-------|
+| **Ghidra** | Reverse engineering | Requires [GhidraMCP](https://github.com/LaurieWired/GhidraMCP) |
+| **IDA Pro** | Disassembler | Requires license + MCP server |
+| **Binary Ninja** | Binary analysis | Requires license + MCP server |
+
+### Exploitation Tools
+
+| Tool | Purpose | Install |
+|------|---------|---------|
+| **pwntools** | Exploit development | `pip install pwntools` |
+| **ROPgadget** | ROP chain finder | `pip install ROPgadget` |
+| **Frida** | Dynamic instrumentation | `pip install frida-tools` |
+
+### Debugging (via MCP)
+
+| Tool | Purpose | Notes |
+|------|---------|-------|
+| **pwndbg** | GDB with exploit dev features | Requires [pwndbg-mcp](https://github.com/bengabay1994/pwndbg-mcp) |
+| **Metasploit** | Exploitation framework | Requires [MetasploitMCP](https://github.com/GH05TCREW/MetasploitMCP) |
+
+### Docker Toolbox
+
+MrZero includes a Docker-based toolbox that provides Opengrep and Linguist without local installation:
+
+```bash
+# Check Docker toolbox status
+mrzero docker status
+
+# Build the toolbox (first time)
+mrzero docker build
+
+# Run Opengrep via Docker
+mrzero docker opengrep ./target
+```
+
+### MCP Server Installation
+
+Install MCP servers for advanced tooling:
+
+```bash
+# List available MCP servers
+mrzero mcp list
+
+# Install a server
+mrzero mcp install pwndbg
+mrzero mcp install metasploit
+
+# Check installation status
+mrzero mcp status
+```
+
+---
+
+## CLI Commands
+
+### Main Commands
+
+```bash
+mrzero scan <target> [OPTIONS]    # Start vulnerability scan
+mrzero sessions                   # Manage scan sessions
+mrzero config                     # Configuration management
+mrzero tools                      # Tool management
+mrzero mcp                        # MCP server management
+mrzero docker                     # Docker toolbox management
+mrzero auth                       # Authentication management
+```
+
+### Scan Options
+
+```bash
+mrzero scan ./target-repo \
+  --mode hitl                    # hitl or yolo
+  --output ./reports             # Output directory
+  --resume SESSION_ID            # Resume previous session
+  --checkpoint-interval 1        # Save checkpoint frequency
+```
+
+### Session Management
+
+```bash
+mrzero sessions                  # List all sessions
+mrzero sessions --delete ID      # Delete a session
+mrzero scan ./repo --resume ID   # Resume a session
+```
+
+### Tool Commands
+
+```bash
+mrzero tools list               # List all known tools
+mrzero tools status             # Show unified status
+mrzero tools check              # Check tool availability
+mrzero tools info <tool>        # Get tool details
+```
+
+### MCP Commands
+
+```bash
+mrzero mcp list                 # List available MCP servers
+mrzero mcp info <server>        # Server details
+mrzero mcp install <server>     # Install a server
+mrzero mcp uninstall <server>   # Remove a server
+mrzero mcp status               # All server statuses
+mrzero mcp test <server>        # Test server connection
+```
+
+---
+
+## Examples
+
+### Example 1: Scan a Python Web Application
+
+```bash
+# Clone a vulnerable test app
+git clone https://github.com/example/vulnerable-flask-app
+cd vulnerable-flask-app
+
+# Run MrZero scan
+mrzero scan . --mode hitl --output ./security-report
+```
+
+**Expected Output:**
+```
+MrZero - Autonomous AI Bug Bounty CLI
+
+[1/6] MrZeroMapper - Analyzing attack surface...
+  Languages: Python (95%), HTML (5%)
+  Frameworks: Flask, SQLAlchemy
+  Endpoints: 12 found (4 unauthenticated)
+
+[2/6] MrZeroVulnHunter - Hunting vulnerabilities...
+  Running Opengrep... 8 findings
+  Running Gitleaks... 2 secrets found
+  LLM Analysis: 6 candidates identified
+
+[3/6] MrZeroVerifier - Filtering false positives...
+  Confirmed: 4 vulnerabilities
+  False Positives: 2
+
+[4/6] MrZeroEnvBuilder - Setting up environment...
+  Docker build: SUCCESS
+  Container running on port 5000
+
+[5/6] MrZeroExploitBuilder - Generating exploits...
+  SQL Injection (VULN-001): Exploit generated
+  Command Injection (VULN-002): Exploit generated
+
+[6/6] MrZeroConclusion - Generating report...
+
+Report saved to: ./security-report/security_report_20260118_143022.md
+```
+
+### Example 2: Scan a Smart Contract
+
+```bash
+# Scan Solidity contracts
+mrzero scan ./contracts --mode hitl
+
+# MrZero will automatically use Slither if available
+```
+
+### Example 3: Resume a Long-Running Scan
+
+```bash
+# Start a scan (it auto-saves checkpoints)
+mrzero scan ./large-codebase --mode yolo
+
+# If interrupted, resume later
+mrzero sessions  # Find your session ID
+mrzero scan ./large-codebase --resume abc123-session-id
+```
+
+### Example 4: Use with MCP Tools
+
+```bash
+# Install pwndbg MCP server
+mrzero mcp install pwndbg
+
+# Run scan - ExploitBuilder will use pwndbg for binary analysis
+mrzero scan ./vulnerable-binary --mode hitl
+```
+
+---
 
 ## Configuration
 
-Create a configuration file at `~/.mrzero/config.json`:
+### Configuration File
+
+Located at `~/.mrzero/config.json`:
 
 ```json
 {
   "llm": {
     "provider": "aws_bedrock",
-    "model": "anthropic.claude-3-5-sonnet-20241022-v2:0",
+    "model": "us.anthropic.claude-3-5-sonnet-20241022-v2:0",
     "temperature": 0.1
   },
+  "scan": {
+    "default_mode": "hitl",
+    "checkpoint_interval": 1
+  },
   "tools": {
-    "disassembly": ["ghidra", "ida", "binaryninja"],
-    "sast_tools": ["semgrep", "gitleaks", "trivy"]
+    "prefer_docker": true,
+    "sast_tools": ["opengrep", "gitleaks", "trivy"]
   }
 }
 ```
 
-Or configure interactively:
+### Interactive Configuration
 
 ```bash
-mrzero config
+mrzero config         # Interactive configuration wizard
+mrzero config show    # Display current configuration
 ```
 
-## Usage
-
-### Basic Scan
-
-```bash
-# Scan a codebase in HITL (human-in-the-loop) mode
-mrzero scan ./target_repo --mode hitl
-
-# Scan in YOLO (autonomous) mode
-mrzero scan ./target_repo --mode yolo
-
-# Specify output directory
-mrzero scan ./target_repo --output ./reports
-```
-
-### Check Installed Tools
-
-```bash
-mrzero tools
-```
-
-### Manage Sessions
-
-```bash
-# List saved sessions
-mrzero sessions
-
-# Resume a paused session
-mrzero scan ./target_repo --resume SESSION_ID
-
-# Delete a session
-mrzero sessions --delete SESSION_ID
-```
-
-### Authentication
-
-```bash
-# Login with Google OAuth (for Gemini)
-mrzero auth login
-
-# Check authentication status
-mrzero auth status
-
-# Logout
-mrzero auth logout
-```
-
-## Workflow
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│                      MrZero Workflow                        │
-├─────────────────────────────────────────────────────────────┤
-│                                                             │
-│  ┌──────────┐    ┌──────────┐    ┌──────────┐              │
-│  │  Mapper  │───▶│  Hunter  │◀──▶│ Verifier │              │
-│  └──────────┘    └──────────┘    └──────────┘              │
-│       │              │                │                     │
-│       │         Feedback Loop (max 3 iterations)           │
-│       │              │                │                     │
-│       │              ▼                │                     │
-│       │         ≥3 confirmed vulns?   │                     │
-│       │              │                │                     │
-│       │              ▼                                      │
-│       │       ┌─────────────┐                              │
-│       │       │ EnvBuilder  │                              │
-│       │       └─────────────┘                              │
-│       │              │                                      │
-│       │              ▼                                      │
-│       │       ┌─────────────┐                              │
-│       │       │ExploitBuilder│                             │
-│       │       └─────────────┘                              │
-│       │              │                                      │
-│       └──────────────┼──────────────────────────────────── │
-│                      ▼                                      │
-│               ┌──────────┐                                  │
-│               │ Reporter │ ──▶ security_report.md          │
-│               └──────────┘                                  │
-│                                                             │
-└─────────────────────────────────────────────────────────────┘
-```
-
-## Vulnerability Prioritization
-
-MrZero uses a prioritization matrix to score vulnerabilities:
-
-| Severity | Score | Vulnerability Types |
-|----------|-------|---------------------|
-| **Critical** | 90-100 | RCE, Command Injection, SQLi, Auth Bypass, Reentrancy, Private Key Leaks |
-| **High** | 70-89 | LPE, SSRF, XXE, Insecure Deserialization, Path Traversal, Stored XSS |
-| **Medium** | 40-69 | Reflected XSS, DoS, CSRF, Race Conditions |
-| **Low** | 20-39 | Open Redirect, CRLF Injection |
-
-## Project Structure
-
-```
-mrzero/
-├── cli/                    # CLI interface (Typer/Rich)
-│   └── main.py
-├── core/
-│   ├── config.py           # Configuration management
-│   ├── schemas.py          # Pydantic models
-│   ├── orchestration/      # LangGraph workflow
-│   │   └── graph.py
-│   ├── memory/             # Data persistence
-│   │   ├── sqlite.py       # Session & cache storage
-│   │   ├── vectordb.py     # Semantic code search
-│   │   └── state.py        # Agent state
-│   ├── mcp/                # MCP client
-│   │   └── client.py
-│   └── llm/                # LLM providers
-│       └── providers.py
-├── agents/                 # AI agents
-│   ├── base.py
-│   ├── mapper/
-│   ├── hunter/
-│   ├── verifier/
-│   ├── builder/
-│   ├── exploiter/
-│   └── reporter/
-└── tools/                  # Security tool wrappers
-    ├── base.py
-    ├── sast.py
-    ├── smart_contract.py
-    └── binary.py
-```
-
-## Environment Variables
+### Environment Variables
 
 | Variable | Description | Default |
 |----------|-------------|---------|
 | `MRZERO_DATA_DIR` | Data directory | `~/.mrzero` |
 | `AWS_REGION` | AWS region for Bedrock | `us-east-1` |
-| `AWS_PROFILE` | AWS profile name | - |
-| `GOOGLE_CLOUD_PROJECT` | Google Cloud project ID | - |
+| `AWS_PROFILE` | AWS profile name | Default profile |
+
+---
+
+## Architecture
+
+```
+                           MrZero Workflow
+    
+    ┌──────────┐    ┌──────────┐    ┌──────────┐
+    │  Mapper  │───>│  Hunter  │<──>│ Verifier │
+    └──────────┘    └──────────┘    └──────────┘
+          │              │                │
+          │         Feedback Loop (max 3 iterations)
+          │              │                │
+          │              v                │
+          │       ≥3 confirmed vulns?     │
+          │              │                │
+          │              v                
+          │       ┌─────────────┐         
+          │       │ EnvBuilder  │         
+          │       └─────────────┘         
+          │              │                
+          │              v                
+          │       ┌─────────────┐         
+          │       │ExploitBuilder│        
+          │       └─────────────┘         
+          │              │                
+          └──────────────┼────────────────
+                         v
+                  ┌──────────┐
+                  │ Reporter │ ──> security_report.md
+                  └──────────┘
+```
+
+### Agent Responsibilities
+
+| Agent | Phase | Function |
+|-------|-------|----------|
+| **Mapper** | Discovery | Fingerprint languages, frameworks, endpoints |
+| **Hunter** | Detection | SAST scanning, LLM-powered vulnerability identification |
+| **Verifier** | Validation | Taint analysis, false positive elimination |
+| **EnvBuilder** | Setup | Docker/harness environment for testing |
+| **ExploitBuilder** | Exploitation | Generate PoCs and working exploits |
+| **Reporter** | Reporting | Comprehensive security report |
+
+---
 
 ## Safety & Ethics
 
-MrZero is designed for **authorized security testing only**. Please ensure you have:
+MrZero is designed for **authorized security testing only**.
 
-- Written permission to test the target codebase
-- Proper network isolation when generating RCE exploits
-- Understanding of responsible disclosure practices
+### Before Using
+
+- Ensure you have **written permission** to test the target
+- Use **proper network isolation** when generating RCE exploits
+- Understand **responsible disclosure** practices
+
+### Safety Features
+
+- **HITL Mode**: Human confirmation at critical steps
+- **Docker Sandboxing**: Targets run in containers when possible
+- **No Auto-Upload**: All analysis happens locally
 
 **Never use this tool against systems you don't own or have explicit permission to test.**
+
+---
+
+## Troubleshooting
+
+### Common Issues
+
+#### "No LLM provider configured"
+```bash
+# For AWS Bedrock
+aws configure
+# Verify: aws sts get-caller-identity
+
+# For Google Gemini
+mrzero auth login
+```
+
+#### "Tool X not found"
+```bash
+# Check tool status
+mrzero tools list
+
+# Use Docker toolbox (no local install needed)
+mrzero docker build
+mrzero docker status
+```
+
+#### "MCP server not connected"
+```bash
+# Install the MCP server
+mrzero mcp install <server-name>
+
+# Check its dependencies
+mrzero mcp info <server-name>
+
+# Test the connection
+mrzero mcp test <server-name>
+```
+
+#### "ChromaDB error" or "VectorDB issues"
+```bash
+# Reinstall with all dependencies
+uv pip install -e ".[all-providers]"
+```
+
+#### Session Resume Not Working
+```bash
+# List sessions to find ID
+mrzero sessions
+
+# Ensure target path matches original scan
+mrzero scan ./same-target-path --resume SESSION_ID
+```
+
+### Debug Mode
+
+For verbose output:
+```bash
+MRZERO_DEBUG=1 mrzero scan ./target --mode hitl
+```
+
+---
 
 ## Development
 
 ```bash
-# Clone and setup
+# Setup development environment
 git clone https://github.com/yourusername/MrZero.git
 cd MrZero
 uv venv && source .venv/bin/activate
 uv pip install -e ".[dev,all-providers]"
 
 # Run tests
-pytest
+uv run pytest tests/
 
 # Format code
-ruff format mrzero
-ruff check mrzero --fix
+uv run ruff format mrzero
+uv run ruff check mrzero --fix
 
 # Type checking
-mypy mrzero
+uv run mypy mrzero
 ```
 
-## Troubleshooting
-
-### Google OAuth Issues
-
-If the local OAuth callback server fails:
-1. Check if port 8085 is available
-2. Try running with `--no-browser` and paste the callback URL manually
-3. Ensure your browser allows popups from localhost
-
-### AWS Bedrock Issues
-
-1. Verify your credentials: `aws sts get-caller-identity`
-2. Check model access in Bedrock console
-3. Ensure your region has the models enabled
-
-### "No module named 'chromadb'" or similar
-
-Install the full dependencies:
-```bash
-uv pip install -e ".[all-providers]"
-```
+---
 
 ## License
 
 MIT License - see [LICENSE](LICENSE) for details.
 
-## Contributing
-
-Contributions are welcome! Please read our contributing guidelines and submit PRs.
+---
 
 ## Disclaimer
 

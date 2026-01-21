@@ -11,6 +11,11 @@ from typing import Any
 from mrzero.agents.base import AgentResult, AgentType, BaseAgent
 from mrzero.core.memory.state import AgentState
 from mrzero.core.schemas import EnvironmentInfo, Vulnerability
+from mrzero.core.environment.manager import (
+    EnvironmentManager,
+    EnvironmentType,
+    get_environment_manager,
+)
 
 
 class EnvBuilderAgent(BaseAgent):
@@ -301,6 +306,14 @@ Respond in this exact JSON format:
     def __init__(self, llm: Any = None, tools: list[Any] | None = None) -> None:
         """Initialize the EnvBuilder agent."""
         super().__init__(llm, tools)
+        self._env_manager: EnvironmentManager | None = None
+
+    @property
+    def env_manager(self) -> EnvironmentManager:
+        """Get the environment manager."""
+        if self._env_manager is None:
+            self._env_manager = get_environment_manager()
+        return self._env_manager
 
     def get_system_prompt(self) -> str:
         """Get the system prompt."""
@@ -788,7 +801,7 @@ Respond in this exact JSON format:
         strategy: dict[str, Any],
         vulnerabilities: list[Vulnerability],
     ) -> tuple[bool, dict[str, Any]]:
-        """Execute the LLM's build strategy.
+        """Execute the LLM's build strategy using EnvironmentManager.
 
         Args:
             target_path: Path to the codebase.
@@ -806,55 +819,243 @@ Respond in this exact JSON format:
         result: dict[str, Any] = {"output": "", "error": "", "env_type": strategy_type}
 
         try:
-            # If harness code is needed, create it first
-            if harness_code.get("needed", False):
-                harness_result = await self._create_harness_files(
-                    target_path, harness_code, vulnerabilities
-                )
-                if not harness_result["success"]:
-                    result["error"] = harness_result["error"]
-                    return False, result
-                result["harness_dir"] = harness_result["harness_dir"]
-
-            # Execute build steps
-            all_output = []
-            for step in build_steps:
-                command = step.get("command", "")
-                if not command:
-                    continue
-
-                working_dir = target_path / step.get("working_dir", ".")
-                if not working_dir.exists():
-                    working_dir = target_path
-
-                step_result = await self._run_command(command, working_dir)
-                all_output.append(f"Step {step.get('step', '?')}: {step.get('action', '')}")
-                all_output.append(f"Command: {command}")
-                all_output.append(f"Output: {step_result['output'][:500]}")
-
-                if not step_result["success"]:
-                    result["output"] = "\n".join(all_output)
-                    result["error"] = step_result["error"]
-                    return False, result
-
-            result["output"] = "\n".join(all_output)
-
-            # Determine environment info based on strategy type
+            # Handle different strategy types
             if strategy_type == "docker":
-                # Try to get container info
-                container_result = await self._get_docker_container_info(target_path)
-                if container_result["success"]:
-                    result["container_id"] = container_result["container_id"]
-                    result["port"] = container_result.get("port", 8080)
-
-            elif strategy_type == "harness":
-                result["harness_dir"] = str(target_path / ".mrzero_harness")
-
-            return True, result
+                return await self._execute_docker_strategy(target_path, build_steps, result)
+            elif strategy_type == "docker-compose":
+                return await self._execute_compose_strategy(target_path, build_steps, result)
+            elif strategy_type in ("harness", "component"):
+                return await self._execute_harness_strategy(
+                    target_path, build_steps, harness_code, vulnerabilities, result
+                )
+            else:
+                # Full build - execute build steps directly
+                return await self._execute_build_steps(target_path, build_steps, result)
 
         except Exception as e:
             result["error"] = str(e)
             return False, result
+
+    async def _execute_docker_strategy(
+        self,
+        target_path: Path,
+        build_steps: list[dict],
+        result: dict[str, Any],
+    ) -> tuple[bool, dict[str, Any]]:
+        """Execute Docker-based build strategy.
+
+        Args:
+            target_path: Path to the codebase.
+            build_steps: Build steps from LLM.
+            result: Result dict to populate.
+
+        Returns:
+            Tuple of (success, result_info).
+        """
+        all_output = []
+
+        # Check Docker availability
+        if not self.env_manager.docker_available():
+            result["error"] = "Docker is not available"
+            return False, result
+
+        # First, try to build the image
+        build_result = await self.env_manager.build_docker_image(
+            target_path=target_path,
+            timeout=300,
+        )
+
+        all_output.append(f"Docker build: {build_result.message or build_result.error}")
+        all_output.append(
+            f"Build output: {build_result.output[:500] if build_result.output else 'N/A'}"
+        )
+
+        if not build_result.success:
+            result["output"] = "\n".join(all_output)
+            result["error"] = build_result.error
+            return False, result
+
+        # Ensure we have an image name
+        image_name = build_result.image_name
+        if not image_name:
+            result["output"] = "\n".join(all_output)
+            result["error"] = "Docker build succeeded but no image name returned"
+            return False, result
+
+        # Run the container
+        run_result = await self.env_manager.run_docker_container(
+            image_name=image_name,
+            ports={8080: 8080},  # Default port mapping
+            detach=True,
+        )
+
+        all_output.append(f"Container start: {run_result.message or run_result.error}")
+
+        if not run_result.success:
+            result["output"] = "\n".join(all_output)
+            result["error"] = run_result.error
+            return False, result
+
+        # Wait a bit for container to initialize
+        await asyncio.sleep(2)
+
+        # Health check
+        container_healthy = await self.env_manager.container_health_check(
+            run_result.container_id or ""
+        )
+
+        if container_healthy:
+            result["output"] = "\n".join(all_output)
+            result["container_id"] = run_result.container_id
+            result["port"] = run_result.port or 8080
+            result["image_name"] = build_result.image_name
+            return True, result
+        else:
+            # Get logs for debugging
+            logs = await self.env_manager.get_container_logs(run_result.container_id or "", tail=50)
+            all_output.append(f"Container logs:\n{logs}")
+            result["output"] = "\n".join(all_output)
+            result["error"] = "Container started but failed health check"
+            return False, result
+
+    async def _execute_compose_strategy(
+        self,
+        target_path: Path,
+        build_steps: list[dict],
+        result: dict[str, Any],
+    ) -> tuple[bool, dict[str, Any]]:
+        """Execute docker-compose based strategy.
+
+        Args:
+            target_path: Path to the codebase.
+            build_steps: Build steps from LLM.
+            result: Result dict to populate.
+
+        Returns:
+            Tuple of (success, result_info).
+        """
+        all_output = []
+
+        # Run docker-compose up
+        compose_result = await self.env_manager.compose_up(
+            target_path=target_path,
+            build=True,
+            detach=True,
+            timeout=300,
+        )
+
+        all_output.append(f"docker-compose: {compose_result.message or compose_result.error}")
+        all_output.append(
+            f"Output: {compose_result.output[:500] if compose_result.output else 'N/A'}"
+        )
+
+        result["output"] = "\n".join(all_output)
+
+        if compose_result.success:
+            result["container_id"] = compose_result.container_id
+            result["port"] = compose_result.port or 8080
+            return True, result
+        else:
+            result["error"] = compose_result.error
+            return False, result
+
+    async def _execute_harness_strategy(
+        self,
+        target_path: Path,
+        build_steps: list[dict],
+        harness_code: dict[str, Any],
+        vulnerabilities: list[Vulnerability],
+        result: dict[str, Any],
+    ) -> tuple[bool, dict[str, Any]]:
+        """Execute harness-based strategy.
+
+        Args:
+            target_path: Path to the codebase.
+            build_steps: Build steps from LLM.
+            harness_code: Harness code specification.
+            vulnerabilities: List of vulnerabilities.
+            result: Result dict to populate.
+
+        Returns:
+            Tuple of (success, result_info).
+        """
+        all_output = []
+
+        # Create harness files if needed
+        if harness_code.get("needed", False):
+            harness_result = await self._create_harness_files(
+                target_path, harness_code, vulnerabilities
+            )
+            if not harness_result["success"]:
+                result["error"] = harness_result["error"]
+                return False, result
+            result["harness_dir"] = harness_result["harness_dir"]
+            all_output.append(f"Created harness at: {harness_result['harness_dir']}")
+
+        # Execute any additional build steps
+        if build_steps:
+            success, step_result = await self._execute_build_steps(target_path, build_steps, result)
+            all_output.append(step_result.get("output", ""))
+            if not success:
+                result["output"] = "\n".join(all_output)
+                return False, result
+
+        # Verify harness can run
+        harness_dir = Path(result.get("harness_dir", target_path / ".mrzero_harness"))
+        if harness_dir.exists():
+            harness_verify = await self.env_manager.run_harness(
+                harness_path=harness_dir,
+                timeout=30,
+            )
+            all_output.append(
+                f"Harness verification: {'Success' if harness_verify.success else 'Failed'}"
+            )
+            if harness_verify.output:
+                all_output.append(f"Harness output:\n{harness_verify.output[:300]}")
+
+        result["output"] = "\n".join(all_output)
+        result["harness_dir"] = str(harness_dir)
+        return True, result
+
+    async def _execute_build_steps(
+        self,
+        target_path: Path,
+        build_steps: list[dict],
+        result: dict[str, Any],
+    ) -> tuple[bool, dict[str, Any]]:
+        """Execute a list of build steps.
+
+        Args:
+            target_path: Path to the codebase.
+            build_steps: List of build steps.
+            result: Result dict to populate.
+
+        Returns:
+            Tuple of (success, result_info).
+        """
+        all_output = []
+
+        for step in build_steps:
+            command = step.get("command", "")
+            if not command:
+                continue
+
+            working_dir = target_path / step.get("working_dir", ".")
+            if not working_dir.exists():
+                working_dir = target_path
+
+            step_result = await self._run_command(command, working_dir)
+            all_output.append(f"Step {step.get('step', '?')}: {step.get('action', '')}")
+            all_output.append(f"Command: {command}")
+            all_output.append(f"Output: {step_result['output'][:500]}")
+
+            if not step_result["success"]:
+                result["output"] = "\n".join(all_output)
+                result["error"] = step_result["error"]
+                return False, result
+
+        result["output"] = "\n".join(all_output)
+        return True, result
 
     async def _create_harness_files(
         self,
@@ -949,14 +1150,24 @@ Respond in this exact JSON format:
         Returns:
             Container info dict.
         """
+        # Check active environments in the manager
+        active = self.env_manager.get_active_environments()
+        for name, state in active.items():
+            if state.target_path == str(target_path) and state.container_id:
+                return {
+                    "success": True,
+                    "container_id": state.container_id,
+                    "port": state.port or 8080,
+                }
+
+        # Fallback: try docker-compose ps
         try:
-            # Try docker-compose first
             result = await self._run_command("docker-compose ps -q", target_path, timeout=30)
             if result["success"] and result["output"].strip():
                 container_id = result["output"].strip().split("\n")[0][:12]
                 return {"success": True, "container_id": container_id, "port": 8080}
 
-            # Try getting running containers
+            # Try getting running containers with mrzero prefix
             result = await self._run_command(
                 "docker ps -q --filter 'name=mrzero' | head -1",
                 target_path,
