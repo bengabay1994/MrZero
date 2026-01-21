@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Optional
 
 import typer
+from art import text2art
 from rich.console import Console
 from rich.panel import Panel
 from rich.progress import Progress, SpinnerColumn, TextColumn
@@ -40,17 +41,11 @@ def version_callback(value: bool) -> None:
 
 
 def print_banner() -> None:
-    """Print the MrZero banner."""
-    banner = r"""
-[bold red]  __  __     _____                
- |  \/  |   |__  /__ _ _ __ ___   
- | |\/| |r    / // _ \ '__/ _ \  
- | |  | |   / /|  __/ | | (_) | 
- |_|  |_|  /____\___|_|  \___/  
-[/bold red]
-[dim]Autonomous AI Bug Bounty CLI[/dim]
-    """
-    console.print(banner)
+    """Print the MrZero banner using ASCII art."""
+    # Generate ASCII art for "MrZero" using the art library
+    ascii_art = text2art("MrZero", font="small")
+    console.print(f"[bold red]{ascii_art}[/bold red]", end="")
+    console.print("[dim]Autonomous AI Bug Bounty CLI[/dim]\n")
 
 
 def is_first_run() -> bool:
