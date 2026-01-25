@@ -1,569 +1,246 @@
-# MrZero
+# MrZero - AI-Powered Security Research Agents
 
-**Autonomous AI Bug Bounty CLI** - A local, command-line tool that autonomously analyzes codebases for security vulnerabilities, sets up reproduction environments, and generates weaponized exploits.
-
-```
- __  __       ____               
-|  \/  | _ _ |_  / ___  _ _  ___ 
-| |\/| || '_| / / / -_)| '_|/ _ \
-|_|  |_||_|  /___|\___||_|  \___/
-                                 
-Autonomous AI Bug Bounty CLI
-```
-
-## Table of Contents
-
-- [Features](#features)
-- [Prerequisites](#prerequisites)
-- [Installation](#installation)
-- [Getting Started](#getting-started)
-- [Supported Tools](#supported-tools)
-- [CLI Commands](#cli-commands)
-- [Examples](#examples)
-- [Configuration](#configuration)
-- [Architecture](#architecture)
-- [Safety & Ethics](#safety--ethics)
-- [Troubleshooting](#troubleshooting)
-
----
+MrZero is a collection of specialized AI agents for vulnerability research, attack surface mapping, and exploit development on open-source projects. It integrates with Claude Code and OpenCode to provide AI-assisted security analysis.
 
 ## Features
 
-- **Multi-Agent Architecture**: Six specialized AI agents working in concert:
-  - **MrZeroMapper**: Attack surface analysis and technology fingerprinting
-  - **MrZeroVulnHunter**: Static analysis vulnerability detection (SAST)
-  - **MrZeroVerifier**: False positive filtering with taint analysis
-  - **MrZeroEnvBuilder**: Automated environment setup (Docker/native)
-  - **MrZeroExploitBuilder**: Exploit and PoC generation
-  - **MrZeroConclusion**: Professional security report generation
+- **4 Specialized Security Agents** - Purpose-built AI personas for different security tasks
+- **Docker-Wrapped Security Tools** - Consistent, isolated tooling via transparent CLI wrappers
+- **MCP Server Integration** - Connect AI to debugging and reverse engineering tools
+- **One-Command Installation** - Automated setup for Claude Code and OpenCode
 
-- **Dual Execution Modes**:
-  - **HITL Mode**: Human-in-the-loop with confirmation prompts (recommended)
-  - **YOLO Mode**: Fully autonomous operation
+## Available Agents
 
-- **Smart Caching**: SQLite-based tool output caching to avoid redundant scans
-- **Semantic Code Search**: Vector database (ChromaDB) for RAG-powered code understanding
-- **Session Management**: Pause and resume long-running scans
-- **MCP Integration**: Connect to external tools via Model Context Protocol
-
----
+| Agent | Description |
+|-------|-------------|
+| **MrZeroMapperOS** | Attack surface mapping and analysis - identifies entry points and attack vectors |
+| **MrZeroVulnHunterOS** | Vulnerability hunting - finds critical security bugs using multiple analysis tools |
+| **MrZeroExploitDeveloper** | Exploit development - builds and tests working exploits with debugging support |
+| **MrZeroEnvBuilder** | Environment setup - creates reproducible test environments for vulnerabilities |
 
 ## Prerequisites
 
 ### Required
 
-| Requirement | Version | Notes |
-|-------------|---------|-------|
-| **Python** | 3.11+ | 3.12 recommended |
-| **UV** | Latest | Package manager (recommended over pip) |
-| **LLM Provider** | - | AWS Bedrock or Google Gemini |
-
-### LLM Provider Setup
-
-MrZero requires an LLM provider. Choose one:
-
-#### Option 1: AWS Bedrock (Recommended)
-
-1. Configure AWS credentials:
-   ```bash
-   # Using AWS CLI
-   aws configure
-   
-   # Or using AWS SSO
-   aws configure sso
-   aws sso login --profile your-profile
-   ```
-
-2. Enable Claude models in [AWS Bedrock Console](https://console.aws.amazon.com/bedrock/)
-
-3. Set environment variables (if not using AWS CLI):
-   ```bash
-   export AWS_ACCESS_KEY_ID="your-access-key"
-   export AWS_SECRET_ACCESS_KEY="your-secret-key"
-   export AWS_REGION="us-east-1"
-   ```
-
-#### Option 2: Google Gemini
-
-1. Run MrZero auth command:
-   ```bash
-   mrzero auth login
-   ```
-2. Follow the OAuth flow in your browser
-
----
-
-## Installation
-
-### Using UV (Recommended)
+- **Linux** (Ubuntu 20.04+ recommended)
+- **Docker** - for containerized security tools
+- **Node.js 18+** - for the installer (`npx`)
+- **Python 3.10+** - for Python-based tools
+- **uv** - fast Python package manager
 
 ```bash
-# Clone the repository
-git clone https://github.com/yourusername/MrZero.git
-cd MrZero
-
-# Create virtual environment and install
-uv venv
-source .venv/bin/activate  # Windows: .venv\Scripts\activate
-
-# Install with your preferred LLM provider
-uv pip install -e ".[aws]"           # For AWS Bedrock
-uv pip install -e ".[google]"        # For Google Gemini
-uv pip install -e ".[all-providers]" # For all providers
-
-# Verify installation
-mrzero --version
+# Install uv if not already installed
+curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
 
-### Using pip
+### Optional (for MrZeroExploitDeveloper)
+
+- **GDB + pwndbg** - for binary exploitation and debugging
+- **Ghidra** - for reverse engineering
+- **Metasploit Framework** - for exploitation modules
+- **IDA Pro** - commercial disassembler (auto-detected if installed)
+
+## Quick Install
 
 ```bash
-git clone https://github.com/yourusername/MrZero.git
-cd MrZero
-python -m venv .venv
-source .venv/bin/activate
-pip install -e ".[all-providers]"
+npx mrzero install
 ```
 
----
+The installer will:
+1. Detect your system configuration and existing tools
+2. Let you select which agents to install
+3. Let you choose target platforms (Claude Code / OpenCode)
+4. Install required tools (Docker image, Python packages, MCP servers)
+5. Configure your AI platforms automatically
 
-## Getting Started
-
-### 1. First Run - Onboarding
-
-On first run, MrZero will guide you through setup:
+### Non-Interactive Installation
 
 ```bash
-mrzero scan ./your-project --mode hitl
+# Install all agents for both platforms
+npx mrzero install --yes
+
+# Install specific agents
+npx mrzero install --agent MrZeroMapperOS --agent MrZeroVulnHunterOS
+
+# Install for a specific platform
+npx mrzero install --platform claude-code
 ```
 
-This will:
-- Check for installed security tools
-- Configure your LLM provider
-- Save your preferences
+## Post-Installation Setup
 
-### 2. Basic Scan
+Some tools require manual setup steps.
+
+### GhidraMCP (for Ghidra integration)
+
+The installer downloads GhidraMCP but Ghidra extensions must be installed manually:
+
+1. Open Ghidra
+2. Go to **File** → **Install Extensions**
+3. Click the **+** button
+4. Select `~/.mrzero/mcp-servers/GhidraMCP/GhidraMCP-extension.zip`
+5. Restart Ghidra
+6. Enable the plugin: **File** → **Configure** → **Developer** → Enable **GhidraMCPPlugin**
+
+### MetasploitMCP (for Metasploit integration)
+
+Before using Metasploit features, start the RPC daemon:
 
 ```bash
-# Scan with human confirmation at each step (recommended for first use)
-mrzero scan ./target-codebase --mode hitl
-
-# Scan in autonomous mode
-mrzero scan ./target-codebase --mode yolo
-
-# Specify output directory
-mrzero scan ./target-codebase --output ./reports
+# Start with default MrZero password
+msfrpcd -P mrzero -S -a 127.0.0.1 -p 55553
 ```
 
-### 3. Check Tool Status
+To use a different password, update the `MSF_PASSWORD` environment variable in your platform configuration.
+
+## Usage
+
+### With Claude Code
+
+After installation, restart Claude Code. The agents are available globally.
+
+**Switch agents:** Press `Tab` to cycle through available agents
+
+**Invoke by name:**
+```
+@MrZeroMapperOS analyze the attack surface of this repository
+```
+
+### With OpenCode
+
+After installation, restart OpenCode. The agents are configured automatically.
+
+**Switch agents:** Press `Tab` to cycle through agents
+
+**Invoke by name:**
+```
+@MrZeroVulnHunterOS find vulnerabilities in this codebase
+```
+
+## Verify Installation
+
+Check what's installed:
 
 ```bash
-# See all available tools
-mrzero tools list
-
-# Get detailed status
-mrzero tools status
+npx mrzero check
 ```
 
-### 4. View Results
+## Uninstall
 
-After a scan completes, find your report at:
-- `~/.mrzero/output/security_report_TIMESTAMP.md` (Markdown report)
-- `~/.mrzero/output/security_report_TIMESTAMP.json` (JSON data)
-
----
-
-## Supported Tools
-
-MrZero integrates with various security tools. **None are strictly required**, but having them improves scan quality.
-
-### SAST & Code Analysis
-
-| Tool | Purpose | Install |
-|------|---------|---------|
-| **Opengrep** | SAST scanner (Semgrep-compatible) | Via Docker (automatic) or [opengrep.dev](https://opengrep.dev) |
-| **Gitleaks** | Secret/credential detection | `brew install gitleaks` or [GitHub](https://github.com/gitleaks/gitleaks) |
-| **Trivy** | Vulnerability scanner | `brew install trivy` or [aquasecurity.github.io](https://aquasecurity.github.io/trivy) |
-
-### Smart Contract Analysis
-
-| Tool | Purpose | Install |
-|------|---------|---------|
-| **Slither** | Solidity static analysis | `pip install slither-analyzer` |
-| **Mythril** | EVM bytecode analysis | `pip install mythril` |
-
-### Binary Analysis (via MCP)
-
-| Tool | Purpose | Notes |
-|------|---------|-------|
-| **Ghidra** | Reverse engineering | Requires [GhidraMCP](https://github.com/LaurieWired/GhidraMCP) |
-| **IDA Pro** | Disassembler | Requires license + MCP server |
-| **Binary Ninja** | Binary analysis | Requires license + MCP server |
-
-### Exploitation Tools
-
-| Tool | Purpose | Install |
-|------|---------|---------|
-| **pwntools** | Exploit development | `pip install pwntools` |
-| **ROPgadget** | ROP chain finder | `pip install ROPgadget` |
-| **Frida** | Dynamic instrumentation | `pip install frida-tools` |
-
-### Debugging (via MCP)
-
-| Tool | Purpose | Notes |
-|------|---------|-------|
-| **pwndbg** | GDB with exploit dev features | Requires [pwndbg-mcp](https://github.com/bengabay1994/pwndbg-mcp) |
-| **Metasploit** | Exploitation framework | Requires [MetasploitMCP](https://github.com/GH05TCREW/MetasploitMCP) |
-
-### Docker Toolbox
-
-MrZero includes a Docker-based toolbox that provides Opengrep and Linguist without local installation:
+Remove MrZero and all installed tools:
 
 ```bash
-# Check Docker toolbox status
-mrzero docker status
-
-# Build the toolbox (first time)
-mrzero docker build
-
-# Run Opengrep via Docker
-mrzero docker opengrep ./target
+npx mrzero uninstall
 ```
 
-### MCP Server Installation
+Options:
+- `--keep-agents` - Keep agent files in platform configs
+- `--keep-docker` - Keep the Docker image
 
-Install MCP servers for advanced tooling:
+## Tools Reference
 
-```bash
-# List available MCP servers
-mrzero mcp list
+### Docker-Wrapped CLI Tools
 
-# Install a server
-mrzero mcp install pwndbg
-mrzero mcp install metasploit
+These tools run in a Docker container but are accessible via transparent shell wrappers:
 
-# Check installation status
-mrzero mcp status
-```
+| Tool | Description |
+|------|-------------|
+| `opengrep` | Pattern-based code analysis (Semgrep fork) |
+| `gitleaks` | Secrets and credential scanning |
+| `codeql` | Semantic code analysis and taint tracking |
+| `joern` | Code property graph analysis |
+| `infer` | Memory safety static analysis (Facebook) |
+| `bearer` | Security and privacy scanning |
+| `slither` | Solidity smart contract analysis |
+| `trivy` | Dependency and container CVE scanning |
+| `linguist` | Language detection |
 
----
+### Native Python Tools (via uv)
 
-## CLI Commands
+| Tool | Description |
+|------|-------------|
+| `pwntools` | CTF framework and exploit development library |
+| `ropper` | ROP gadget finder |
+| `ropgadget` | ROP gadget finder (bundled with pwntools) |
 
-### Main Commands
+### Native Ruby Tools
 
-```bash
-mrzero scan <target> [OPTIONS]    # Start vulnerability scan
-mrzero sessions                   # Manage scan sessions
-mrzero config                     # Configuration management
-mrzero tools                      # Tool management
-mrzero mcp                        # MCP server management
-mrzero docker                     # Docker toolbox management
-mrzero auth                       # Authentication management
-```
+| Tool | Description |
+|------|-------------|
+| `one_gadget` | Find one-shot RCE gadgets in libc |
 
-### Scan Options
+### MCP Servers
 
-```bash
-mrzero scan ./target-repo \
-  --mode hitl                    # hitl or yolo
-  --output ./reports             # Output directory
-  --resume SESSION_ID            # Resume previous session
-  --checkpoint-interval 1        # Save checkpoint frequency
-```
+| Server | Tool | Description |
+|--------|------|-------------|
+| `pwndbg-mcp` | GDB + pwndbg | Binary debugging and exploitation |
+| `ghidra-mcp` | Ghidra | Reverse engineering |
+| `metasploit-mcp` | Metasploit | Exploitation framework |
+| `ida-pro-mcp` | IDA Pro | Disassembly (if IDA Pro detected) |
 
-### Session Management
+## Directory Structure
 
-```bash
-mrzero sessions                  # List all sessions
-mrzero sessions --delete ID      # Delete a session
-mrzero scan ./repo --resume ID   # Resume a session
-```
-
-### Tool Commands
-
-```bash
-mrzero tools list               # List all known tools
-mrzero tools status             # Show unified status
-mrzero tools check              # Check tool availability
-mrzero tools info <tool>        # Get tool details
-```
-
-### MCP Commands
-
-```bash
-mrzero mcp list                 # List available MCP servers
-mrzero mcp info <server>        # Server details
-mrzero mcp install <server>     # Install a server
-mrzero mcp uninstall <server>   # Remove a server
-mrzero mcp status               # All server statuses
-mrzero mcp test <server>        # Test server connection
-```
-
----
-
-## Examples
-
-### Example 1: Scan a Python Web Application
-
-```bash
-# Clone a vulnerable test app
-git clone https://github.com/example/vulnerable-flask-app
-cd vulnerable-flask-app
-
-# Run MrZero scan
-mrzero scan . --mode hitl --output ./security-report
-```
-
-**Expected Output:**
-```
-MrZero - Autonomous AI Bug Bounty CLI
-
-[1/6] MrZeroMapper - Analyzing attack surface...
-  Languages: Python (95%), HTML (5%)
-  Frameworks: Flask, SQLAlchemy
-  Endpoints: 12 found (4 unauthenticated)
-
-[2/6] MrZeroVulnHunter - Hunting vulnerabilities...
-  Running Opengrep... 8 findings
-  Running Gitleaks... 2 secrets found
-  LLM Analysis: 6 candidates identified
-
-[3/6] MrZeroVerifier - Filtering false positives...
-  Confirmed: 4 vulnerabilities
-  False Positives: 2
-
-[4/6] MrZeroEnvBuilder - Setting up environment...
-  Docker build: SUCCESS
-  Container running on port 5000
-
-[5/6] MrZeroExploitBuilder - Generating exploits...
-  SQL Injection (VULN-001): Exploit generated
-  Command Injection (VULN-002): Exploit generated
-
-[6/6] MrZeroConclusion - Generating report...
-
-Report saved to: ./security-report/security_report_20260118_143022.md
-```
-
-### Example 2: Scan a Smart Contract
-
-```bash
-# Scan Solidity contracts
-mrzero scan ./contracts --mode hitl
-
-# MrZero will automatically use Slither if available
-```
-
-### Example 3: Resume a Long-Running Scan
-
-```bash
-# Start a scan (it auto-saves checkpoints)
-mrzero scan ./large-codebase --mode yolo
-
-# If interrupted, resume later
-mrzero sessions  # Find your session ID
-mrzero scan ./large-codebase --resume abc123-session-id
-```
-
-### Example 4: Use with MCP Tools
-
-```bash
-# Install pwndbg MCP server
-mrzero mcp install pwndbg
-
-# Run scan - ExploitBuilder will use pwndbg for binary analysis
-mrzero scan ./vulnerable-binary --mode hitl
-```
-
----
-
-## Configuration
-
-### Configuration File
-
-Located at `~/.mrzero/config.json`:
-
-```json
-{
-  "llm": {
-    "provider": "aws_bedrock",
-    "model": "us.anthropic.claude-3-5-sonnet-20241022-v2:0",
-    "temperature": 0.1
-  },
-  "scan": {
-    "default_mode": "hitl",
-    "checkpoint_interval": 1
-  },
-  "tools": {
-    "prefer_docker": true,
-    "sast_tools": ["opengrep", "gitleaks", "trivy"]
-  }
-}
-```
-
-### Interactive Configuration
-
-```bash
-mrzero config         # Interactive configuration wizard
-mrzero config show    # Display current configuration
-```
-
-### Environment Variables
-
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `MRZERO_DATA_DIR` | Data directory | `~/.mrzero` |
-| `AWS_REGION` | AWS region for Bedrock | `us-east-1` |
-| `AWS_PROFILE` | AWS profile name | Default profile |
-
----
-
-## Architecture
+MrZero stores its files in `~/.mrzero/`:
 
 ```
-                           MrZero Workflow
-    
-    ┌──────────┐    ┌──────────┐    ┌──────────┐
-    │  Mapper  │───>│  Hunter  │<──>│ Verifier │
-    └──────────┘    └──────────┘    └──────────┘
-          │              │                │
-          │         Feedback Loop (max 3 iterations)
-          │              │                │
-          │              v                │
-          │       ≥3 confirmed vulns?     │
-          │              │                │
-          │              v                
-          │       ┌─────────────┐         
-          │       │ EnvBuilder  │         
-          │       └─────────────┘         
-          │              │                
-          │              v                
-          │       ┌─────────────┐         
-          │       │ExploitBuilder│        
-          │       └─────────────┘         
-          │              │                
-          └──────────────┼────────────────
-                         v
-                  ┌──────────┐
-                  │ Reporter │ ──> security_report.md
-                  └──────────┘
+~/.mrzero/
+├── mcp-servers/           # Cloned MCP server repositories
+│   ├── pwndbg-mcp/
+│   ├── GhidraMCP/
+│   └── MetasploitMCP/
 ```
 
-### Agent Responsibilities
+CLI wrappers are installed to `~/.local/bin/` (ensure this is in your PATH).
 
-| Agent | Phase | Function |
-|-------|-------|----------|
-| **Mapper** | Discovery | Fingerprint languages, frameworks, endpoints |
-| **Hunter** | Detection | SAST scanning, LLM-powered vulnerability identification |
-| **Verifier** | Validation | Taint analysis, false positive elimination |
-| **EnvBuilder** | Setup | Docker/harness environment for testing |
-| **ExploitBuilder** | Exploitation | Generate PoCs and working exploits |
-| **Reporter** | Reporting | Comprehensive security report |
-
----
-
-## Safety & Ethics
-
-MrZero is designed for **authorized security testing only**.
-
-### Before Using
-
-- Ensure you have **written permission** to test the target
-- Use **proper network isolation** when generating RCE exploits
-- Understand **responsible disclosure** practices
-
-### Safety Features
-
-- **HITL Mode**: Human confirmation at critical steps
-- **Docker Sandboxing**: Targets run in containers when possible
-- **No Auto-Upload**: All analysis happens locally
-
-**Never use this tool against systems you don't own or have explicit permission to test.**
-
----
+Agent files are copied to:
+- Claude Code: `~/.claude/agents/`
+- OpenCode: `~/.config/opencode/agents/`
 
 ## Troubleshooting
 
-### Common Issues
+### Docker wrapper commands not found
 
-#### "No LLM provider configured"
-```bash
-# For AWS Bedrock
-aws configure
-# Verify: aws sts get-caller-identity
-
-# For Google Gemini
-mrzero auth login
-```
-
-#### "Tool X not found"
-```bash
-# Check tool status
-mrzero tools list
-
-# Use Docker toolbox (no local install needed)
-mrzero docker build
-mrzero docker status
-```
-
-#### "MCP server not connected"
-```bash
-# Install the MCP server
-mrzero mcp install <server-name>
-
-# Check its dependencies
-mrzero mcp info <server-name>
-
-# Test the connection
-mrzero mcp test <server-name>
-```
-
-#### "ChromaDB error" or "VectorDB issues"
-```bash
-# Reinstall with all dependencies
-uv pip install -e ".[all-providers]"
-```
-
-#### Session Resume Not Working
-```bash
-# List sessions to find ID
-mrzero sessions
-
-# Ensure target path matches original scan
-mrzero scan ./same-target-path --resume SESSION_ID
-```
-
-### Debug Mode
-
-For verbose output:
-```bash
-MRZERO_DEBUG=1 mrzero scan ./target --mode hitl
-```
-
----
-
-## Development
+Ensure `~/.local/bin` is in your PATH:
 
 ```bash
-# Setup development environment
-git clone https://github.com/yourusername/MrZero.git
-cd MrZero
-uv venv && source .venv/bin/activate
-uv pip install -e ".[dev,all-providers]"
-
-# Run tests
-uv run pytest tests/
-
-# Format code
-uv run ruff format mrzero
-uv run ruff check mrzero --fix
-
-# Type checking
-uv run mypy mrzero
+export PATH="$HOME/.local/bin:$PATH"
 ```
----
 
-## Disclaimer
+Add this line to your `~/.bashrc` or `~/.zshrc`.
 
-This tool is provided for educational and authorized security testing purposes only. The authors are not responsible for any misuse or damage caused by this tool. Always obtain proper authorization before testing any systems.
+### MCP servers not connecting
+
+Restart your AI platform (Claude Code / OpenCode) after installation.
+
+### pwndbg not detected
+
+If you installed pwndbg via `.gdbinit`, the installer should detect it. Ensure your `.gdbinit` contains:
+
+```
+source /path/to/pwndbg/gdbinit.py
+```
+
+### Docker image build fails
+
+Some tools require significant memory to build. Ensure Docker has at least 4GB of memory allocated.
+
+Alternatively, wait for the pre-built image to be available:
+
+```bash
+docker pull ghcr.io/bengabay1994/mrzero-tools:latest
+```
+
+## Contributing
+
+Contributions are welcome! Please open an issue or pull request on GitHub.
+
+## License
+
+MIT License - see [LICENSE](LICENSE) for details.
+
+## Acknowledgements
+
+- [pwndbg](https://github.com/pwndbg/pwndbg) - GDB plugin for exploit development
+- [GhidraMCP](https://github.com/LaurieWired/GhidraMCP) - MCP server for Ghidra
+- [MetasploitMCP](https://github.com/GH05TCREW/MetasploitMCP) - MCP server for Metasploit
+- [ida-pro-mcp](https://github.com/mrexodia/ida-pro-mcp) - MCP server for IDA Pro
+- All the security tools integrated in this project

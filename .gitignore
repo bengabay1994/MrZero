@@ -68,6 +68,12 @@ credentials.json
 *_credentials.json
 *_token.json
 
+# Node.js
+node_modules/
+dist/
+*.tsbuildinfo
+package-lock.json
+
 # OS
 .DS_Store
 Thumbs.db

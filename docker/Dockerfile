@@ -1,58 +1,119 @@
-# MrZero Toolbox - Security Analysis Tools Container
-# This container provides SAST and code analysis tools for MrZero CLI
+# MrZero Security Tools Container
+# Contains all security scanning tools for MrZero agents
 
 FROM ubuntu:22.04
 
-LABEL maintainer="MrZero Team"
-LABEL description="MrZero Toolbox - Security analysis tools container"
-LABEL version="1.0"
+LABEL maintainer="bengabay1994"
+LABEL description="MrZero security scanning tools container"
 
-# Avoid interactive prompts during package installation
+# Avoid prompts during package installation
 ENV DEBIAN_FRONTEND=noninteractive
-ENV LANG=C.UTF-8
-ENV LC_ALL=C.UTF-8
+ENV TZ=UTC
 
-# Install system dependencies
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    # Basic utilities
+# Install base dependencies
+RUN apt-get update && apt-get install -y \
     curl \
     wget \
     git \
-    ca-certificates \
-    gnupg \
     unzip \
-    # Ruby for Linguist
+    python3 \
+    python3-pip \
+    python3-venv \
     ruby \
     ruby-dev \
+    openjdk-17-jdk \
     build-essential \
     cmake \
     pkg-config \
-    libicu-dev \
-    # Required for rugged gem (linguist dependency)
-    libgit2-dev \
     libssl-dev \
-    zlib1g-dev \
-    # Clean up
-    && rm -rf /var/lib/apt/lists/* \
-    # Create symlink for gmake (required by rugged gem)
-    && ln -sf /usr/bin/make /usr/bin/gmake
+    && rm -rf /var/lib/apt/lists/*
 
-# Install Opengrep using official install script
-# https://github.com/opengrep/opengrep
-RUN curl -fsSL https://raw.githubusercontent.com/opengrep/opengrep/main/install.sh | bash
+# Set up Python
+RUN python3 -m pip install --upgrade pip setuptools wheel
 
-# Install GitHub Linguist
-RUN gem install github-linguist --no-document
+# Install uv for faster Python package management
+RUN curl -LsSf https://astral.sh/uv/install.sh | sh
+ENV PATH="/root/.local/bin:$PATH"
 
-# Create workspace directory
+WORKDIR /tools
+
+# ============================================
+# Gitleaks - Secrets scanning
+# ============================================
+RUN curl -sSL $(curl -s https://api.github.com/repos/gitleaks/gitleaks/releases/latest | \
+    grep "browser_download_url.*linux_x64.tar.gz" | cut -d '"' -f 4) | tar xz -C /usr/local/bin gitleaks
+
+# ============================================
+# Trivy - Vulnerability scanning
+# ============================================
+RUN curl -sSL $(curl -s https://api.github.com/repos/aquasecurity/trivy/releases/latest | \
+    grep "browser_download_url.*Linux-64bit.tar.gz" | grep -v ".sig" | head -1 | cut -d '"' -f 4) | \
+    tar xz -C /usr/local/bin trivy
+
+# ============================================
+# Bearer - Security and privacy scanning
+# ============================================
+RUN curl -sSL $(curl -s https://api.github.com/repos/Bearer/bearer/releases/latest | \
+    grep "browser_download_url.*linux_amd64.tar.gz" | cut -d '"' -f 4) | tar xz -C /usr/local/bin bearer
+
+# ============================================
+# Opengrep (Semgrep fork) - Pattern-based analysis
+# ============================================
+RUN uv pip install --system opengrep
+
+# ============================================
+# Slither - Solidity smart contract analysis
+# ============================================
+RUN uv pip install --system slither-analyzer solc-select
+RUN solc-select install latest && solc-select use latest
+
+# ============================================
+# CodeQL - Semantic code analysis
+# ============================================
+RUN mkdir -p /opt/codeql && \
+    curl -sSL $(curl -s https://api.github.com/repos/github/codeql-cli-binaries/releases/latest | \
+    grep "browser_download_url.*codeql-linux64.zip" | cut -d '"' -f 4) -o /tmp/codeql.zip && \
+    unzip -q /tmp/codeql.zip -d /opt && \
+    rm /tmp/codeql.zip
+ENV PATH="/opt/codeql:$PATH"
+
+# ============================================
+# Joern - Code property graph analysis
+# ============================================
+RUN mkdir -p /opt/joern && \
+    curl -sSL $(curl -s https://api.github.com/repos/joernio/joern/releases/latest | \
+    grep "browser_download_url.*joern-cli.zip" | cut -d '"' -f 4) -o /tmp/joern.zip && \
+    unzip -q /tmp/joern.zip -d /opt/joern && \
+    rm /tmp/joern.zip && \
+    chmod +x /opt/joern/joern-cli/joern
+ENV PATH="/opt/joern/joern-cli:$PATH"
+
+# ============================================
+# Infer - Static analysis (Facebook)
+# ============================================
+RUN curl -sSL $(curl -s https://api.github.com/repos/facebook/infer/releases/latest | \
+    grep "browser_download_url.*linux64.tar.xz" | cut -d '"' -f 4) | \
+    tar xJ -C /opt && \
+    ln -s /opt/infer-*/bin/infer /usr/local/bin/infer
+
+# ============================================
+# Linguist - Language detection
+# ============================================
+RUN gem install github-linguist
+
+# ============================================
+# Tree-sitter - Syntax parsing
+# ============================================
+RUN uv pip install --system tree-sitter
+
+# ============================================
+# Cleanup
+# ============================================
+RUN apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+
+# Set working directory for scanning
 WORKDIR /workspace
 
-# Copy entrypoint script
-COPY docker/entrypoint.sh /usr/local/bin/entrypoint.sh
-RUN chmod +x /usr/local/bin/entrypoint.sh
-
-# Default entrypoint
-ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
-
-# Default command shows help
-CMD ["--help"]
+# Default entrypoint - can be overridden
+ENTRYPOINT ["/bin/bash", "-c"]
+CMD ["echo 'MrZero Tools Container - use specific tool commands'"]

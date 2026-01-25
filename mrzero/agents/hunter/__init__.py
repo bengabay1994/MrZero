@@ -1,1 +1,0 @@
-"""MrZeroVulnHunter - Vulnerability Hunter agent."""
