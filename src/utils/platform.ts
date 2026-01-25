@@ -1,0 +1,75 @@
+import * as os from 'os';
+import * as path from 'path';
+
+export type Platform = 'linux' | 'darwin' | 'win32' | 'unsupported';
+
+export function getPlatform(): Platform {
+  const platform = os.platform();
+  if (platform === 'linux' || platform === 'darwin' || platform === 'win32') {
+    return platform;
+  }
+  return 'unsupported';
+}
+
+export function isLinux(): boolean {
+  return os.platform() === 'linux';
+}
+
+export function isMac(): boolean {
+  return os.platform() === 'darwin';
+}
+
+export function isWindows(): boolean {
+  return os.platform() === 'win32';
+}
+
+export function getHomeDir(): string {
+  return os.homedir();
+}
+
+export function getMrZeroDir(): string {
+  return path.join(getHomeDir(), '.mrzero');
+}
+
+export function getMcpServersDir(): string {
+  return path.join(getMrZeroDir(), 'mcp-servers');
+}
+
+export function getWrappersDir(): string {
+  return path.join(getHomeDir(), '.local', 'bin');
+}
+
+export function getClaudeConfigDir(): string {
+  return path.join(getHomeDir(), '.claude');
+}
+
+export function getClaudeAgentsDir(): string {
+  return path.join(getClaudeConfigDir(), 'agents');
+}
+
+export function getOpenCodeConfigDir(): string {
+  return path.join(getHomeDir(), '.config', 'opencode');
+}
+
+export function getOpenCodeAgentsDir(): string {
+  return path.join(getOpenCodeConfigDir(), 'agents');
+}
+
+export function getDistroInfo(): { name: string; version: string } | null {
+  if (!isLinux()) return null;
+  
+  try {
+    const fs = require('fs');
+    const releaseFile = '/etc/os-release';
+    if (fs.existsSync(releaseFile)) {
+      const content = fs.readFileSync(releaseFile, 'utf-8');
+      const nameMatch = content.match(/^NAME="?([^"\n]+)"?/m);
+      const versionMatch = content.match(/^VERSION_ID="?([^"\n]+)"?/m);
+      return {
+        name: nameMatch?.[1] || 'Unknown',
+        version: versionMatch?.[1] || 'Unknown',
+      };
+    }
+  } catch {}
+  return null;
+}
