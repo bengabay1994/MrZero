@@ -92,7 +92,7 @@ ENV PATH="/opt/joern/joern-cli:$PATH"
 # Infer - Static analysis (Facebook)
 # ============================================
 RUN curl -sSL $(curl -s https://api.github.com/repos/facebook/infer/releases/latest | \
-    grep "browser_download_url.*linux64.tar.xz" | cut -d '"' -f 4) | \
+    grep "browser_download_url.*linux-x86_64.*tar.xz" | cut -d '"' -f 4) | \
     tar xJ -C /opt && \
     ln -s /opt/infer-*/bin/infer /usr/local/bin/infer
 
