@@ -72,7 +72,6 @@ credentials.json
 node_modules/
 dist/
 *.tsbuildinfo
-package-lock.json
 
 # OS
 .DS_Store
