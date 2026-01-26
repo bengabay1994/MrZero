@@ -16,6 +16,7 @@ RUN apt-get update && apt-get install -y \
     wget \
     git \
     unzip \
+    jq \
     python3 \
     python3-pip \
     python3-venv \
@@ -26,6 +27,7 @@ RUN apt-get update && apt-get install -y \
     cmake \
     pkg-config \
     libssl-dev \
+    libicu-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # Set up Python
@@ -40,21 +42,18 @@ WORKDIR /tools
 # ============================================
 # Gitleaks - Secrets scanning
 # ============================================
-RUN curl -sSL $(curl -s https://api.github.com/repos/gitleaks/gitleaks/releases/latest | \
-    grep "browser_download_url.*linux_x64.tar.gz" | cut -d '"' -f 4) | tar xz -C /usr/local/bin gitleaks
+RUN GITLEAKS_VERSION=$(curl -sL https://api.github.com/repos/gitleaks/gitleaks/releases/latest | jq -r '.tag_name' | sed 's/v//') && \
+    curl -sSL "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" | tar xz -C /usr/local/bin gitleaks
 
 # ============================================
 # Trivy - Vulnerability scanning
 # ============================================
-RUN curl -sSL $(curl -s https://api.github.com/repos/aquasecurity/trivy/releases/latest | \
-    grep "browser_download_url.*Linux-64bit.tar.gz" | grep -v ".sig" | head -1 | cut -d '"' -f 4) | \
-    tar xz -C /usr/local/bin trivy
+RUN curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin
 
 # ============================================
 # Bearer - Security and privacy scanning
 # ============================================
-RUN curl -sSL $(curl -s https://api.github.com/repos/Bearer/bearer/releases/latest | \
-    grep "browser_download_url.*linux_amd64.tar.gz" | cut -d '"' -f 4) | tar xz -C /usr/local/bin bearer
+RUN curl -sfL https://raw.githubusercontent.com/Bearer/bearer/main/contrib/install.sh | sh -s -- -b /usr/local/bin
 
 # ============================================
 # Opengrep (Semgrep fork) - Pattern-based analysis
@@ -71,8 +70,7 @@ RUN solc-select install latest && solc-select use latest
 # CodeQL - Semantic code analysis
 # ============================================
 RUN mkdir -p /opt/codeql && \
-    curl -sSL $(curl -s https://api.github.com/repos/github/codeql-cli-binaries/releases/latest | \
-    grep "browser_download_url.*codeql-linux64.zip" | cut -d '"' -f 4) -o /tmp/codeql.zip && \
+    curl -sSL -o /tmp/codeql.zip https://github.com/github/codeql-cli-binaries/releases/latest/download/codeql-linux64.zip && \
     unzip -q /tmp/codeql.zip -d /opt && \
     rm /tmp/codeql.zip
 ENV PATH="/opt/codeql:$PATH"
@@ -81,8 +79,7 @@ ENV PATH="/opt/codeql:$PATH"
 # Joern - Code property graph analysis
 # ============================================
 RUN mkdir -p /opt/joern && \
-    curl -sSL $(curl -s https://api.github.com/repos/joernio/joern/releases/latest | \
-    grep "browser_download_url.*joern-cli.zip" | cut -d '"' -f 4) -o /tmp/joern.zip && \
+    curl -sSL -o /tmp/joern.zip https://github.com/joernio/joern/releases/latest/download/joern-cli.zip && \
     unzip -q /tmp/joern.zip -d /opt/joern && \
     rm /tmp/joern.zip && \
     chmod +x /opt/joern/joern-cli/joern
@@ -91,9 +88,11 @@ ENV PATH="/opt/joern/joern-cli:$PATH"
 # ============================================
 # Infer - Static analysis (Facebook)
 # ============================================
-RUN curl -sSL $(curl -s https://api.github.com/repos/facebook/infer/releases/latest | \
-    grep "browser_download_url.*linux64.tar.xz" | cut -d '"' -f 4) | \
-    tar xJ -C /opt && \
+# Note: Infer doesn't support /releases/latest/download/ pattern due to version in filename
+# Using specific version to avoid API rate limits
+RUN curl -sSL -o /tmp/infer.tar.xz https://github.com/facebook/infer/releases/download/v1.2.0/infer-linux-x86_64-v1.2.0.tar.xz && \
+    tar xJf /tmp/infer.tar.xz -C /opt && \
+    rm /tmp/infer.tar.xz && \
     ln -s /opt/infer-*/bin/infer /usr/local/bin/infer
 
 # ============================================
