@@ -27,6 +27,7 @@ RUN apt-get update && apt-get install -y \
     cmake \
     pkg-config \
     libssl-dev \
+    libicu-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # Set up Python
