@@ -7,13 +7,13 @@ on:
     types: [published]
   workflow_dispatch: # Allow manual trigger
 
+permissions:
+  id-token: write # Required for OIDC
+  contents: read
+
 jobs:
   publish:
     runs-on: ubuntu-latest
-    environment: npm-publish
-    permissions:
-      contents: read
-      id-token: write # Required for OIDC authentication with npm
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -26,9 +26,7 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
-
       - name: Build
         run: npm run build
-
-      - name: Publish to npm with provenance
-        run: npm publish --provenance --access public
+      - name: Publish to npm
+        run: npm publish --access public
