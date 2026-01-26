@@ -59,7 +59,7 @@ RUN curl -sSL $(curl -s https://api.github.com/repos/Bearer/bearer/releases/late
 # ============================================
 # Opengrep (Semgrep fork) - Pattern-based analysis
 # ============================================
-RUN uv pip install --system opengrep
+RUN curl -fsSL https://raw.githubusercontent.com/opengrep/opengrep/main/install.sh | bash
 
 # ============================================
 # Slither - Solidity smart contract analysis
