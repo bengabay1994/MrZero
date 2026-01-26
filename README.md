@@ -43,7 +43,7 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 ## Quick Install
 
 ```bash
-npx mrzero install
+npx @bengabay94/mrzero install
 ```
 
 The installer will:
@@ -57,13 +57,13 @@ The installer will:
 
 ```bash
 # Install all agents for both platforms
-npx mrzero install --yes
+npx @bengabay94/mrzero install --yes
 
 # Install specific agents
-npx mrzero install --agent MrZeroMapperOS --agent MrZeroVulnHunterOS
+npx @bengabay94/mrzero install --agent MrZeroMapperOS --agent MrZeroVulnHunterOS
 
 # Install for a specific platform
-npx mrzero install --platform claude-code
+npx @bengabay94/mrzero install --platform claude-code
 ```
 
 ## Post-Installation Setup
@@ -121,7 +121,7 @@ After installation, restart OpenCode. The agents are configured automatically.
 Check what's installed:
 
 ```bash
-npx mrzero check
+npx @bengabay94/mrzero check
 ```
 
 ## Uninstall
@@ -129,7 +129,7 @@ npx mrzero check
 Remove MrZero and all installed tools:
 
 ```bash
-npx mrzero uninstall
+npx @bengabay94/mrzero uninstall
 ```
 
 Options:
