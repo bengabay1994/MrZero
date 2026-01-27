@@ -19,8 +19,8 @@ export async function installPythonTool(toolName: string): Promise<boolean> {
     return false;
   }
 
-  // Install using uv
-  const installCmd = tool.installCommand || `uv pip install --system ${toolName}`;
+  // Install using uv tool (creates isolated environment)
+  const installCmd = tool.installCommand || `uv tool install ${toolName}`;
   const result = await exec(installCmd);
 
   if (result.code === 0) {
@@ -60,7 +60,7 @@ export async function uninstallPythonTool(toolName: string): Promise<boolean> {
 
   logger.step(`Uninstalling ${tool.displayName}...`);
 
-  const result = await exec(`uv pip uninstall -y ${toolName}`);
+  const result = await exec(`uv tool uninstall ${toolName}`);
   if (result.code === 0) {
     logger.success(`Uninstalled ${tool.displayName}`);
     return true;

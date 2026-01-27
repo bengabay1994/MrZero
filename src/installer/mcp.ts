@@ -90,16 +90,12 @@ async function installPwndbgMcp(): Promise<McpInstallResult> {
   // Install using uv tool install
   const installResult = await exec(`uv tool install .`, { cwd: repoPath });
   if (installResult.code !== 0) {
-    // Try alternative method
-    const altResult = await exec(`uv pip install --system .`, { cwd: repoPath });
-    if (altResult.code !== 0) {
-      return {
-        name: server.name,
-        installed: false,
-        skipped: false,
-        reason: `Failed to install: ${installResult.stderr}`,
-      };
-    }
+    return {
+      name: server.name,
+      installed: false,
+      skipped: false,
+      reason: `Failed to install: ${installResult.stderr}`,
+    };
   }
 
   logger.success(`Installed ${server.displayName}`);
@@ -134,10 +130,15 @@ async function installGhidraMcp(): Promise<McpInstallResult> {
     }
   }
 
-  // Install Python dependencies
+  // Install Python dependencies in a virtual environment
   const reqFile = path.join(repoPath, 'requirements.txt');
   if (fs.existsSync(reqFile)) {
-    const pipResult = await exec(`uv pip install --system -r requirements.txt`, { cwd: repoPath });
+    // Create venv if it doesn't exist
+    const venvPath = path.join(repoPath, '.venv');
+    if (!fs.existsSync(venvPath)) {
+      await exec(`uv venv`, { cwd: repoPath });
+    }
+    const pipResult = await exec(`uv pip install -r requirements.txt`, { cwd: repoPath });
     if (pipResult.code !== 0) {
       logger.warning(`Failed to install Python dependencies: ${pipResult.stderr}`);
     }
@@ -188,10 +189,15 @@ async function installMetasploitMcp(): Promise<McpInstallResult> {
     }
   }
 
-  // Install Python dependencies
+  // Install Python dependencies in a virtual environment
   const reqFile = path.join(repoPath, 'requirements.txt');
   if (fs.existsSync(reqFile)) {
-    const pipResult = await exec(`uv pip install --system -r requirements.txt`, { cwd: repoPath });
+    // Create venv if it doesn't exist
+    const venvPath = path.join(repoPath, '.venv');
+    if (!fs.existsSync(venvPath)) {
+      await exec(`uv venv`, { cwd: repoPath });
+    }
+    const pipResult = await exec(`uv pip install -r requirements.txt`, { cwd: repoPath });
     if (pipResult.code !== 0) {
       logger.warning(`Failed to install Python dependencies: ${pipResult.stderr}`);
     }
@@ -211,9 +217,9 @@ async function installIdaProMcp(): Promise<McpInstallResult> {
 
   logger.step(`Installing ${server.displayName}...`);
 
-  // Install via pip from GitHub
+  // Install via uv tool from GitHub
   const installResult = await exec(
-    `uv pip install --system https://github.com/mrexodia/ida-pro-mcp/archive/refs/heads/main.zip`
+    `uv tool install https://github.com/mrexodia/ida-pro-mcp/archive/refs/heads/main.zip`
   );
 
   if (installResult.code !== 0) {
