@@ -91,7 +91,7 @@ async function installPwndbgMcp(): Promise<McpInstallResult> {
   const installResult = await exec(`uv tool install .`, { cwd: repoPath });
   if (installResult.code !== 0) {
     // Try alternative method
-    const altResult = await exec(`uv pip install .`, { cwd: repoPath });
+    const altResult = await exec(`uv pip install --system .`, { cwd: repoPath });
     if (altResult.code !== 0) {
       return {
         name: server.name,
@@ -137,7 +137,7 @@ async function installGhidraMcp(): Promise<McpInstallResult> {
   // Install Python dependencies
   const reqFile = path.join(repoPath, 'requirements.txt');
   if (fs.existsSync(reqFile)) {
-    const pipResult = await exec(`uv pip install -r requirements.txt`, { cwd: repoPath });
+    const pipResult = await exec(`uv pip install --system -r requirements.txt`, { cwd: repoPath });
     if (pipResult.code !== 0) {
       logger.warning(`Failed to install Python dependencies: ${pipResult.stderr}`);
     }
@@ -191,7 +191,7 @@ async function installMetasploitMcp(): Promise<McpInstallResult> {
   // Install Python dependencies
   const reqFile = path.join(repoPath, 'requirements.txt');
   if (fs.existsSync(reqFile)) {
-    const pipResult = await exec(`uv pip install -r requirements.txt`, { cwd: repoPath });
+    const pipResult = await exec(`uv pip install --system -r requirements.txt`, { cwd: repoPath });
     if (pipResult.code !== 0) {
       logger.warning(`Failed to install Python dependencies: ${pipResult.stderr}`);
     }
@@ -213,7 +213,7 @@ async function installIdaProMcp(): Promise<McpInstallResult> {
 
   // Install via pip from GitHub
   const installResult = await exec(
-    `uv pip install https://github.com/mrexodia/ida-pro-mcp/archive/refs/heads/main.zip`
+    `uv pip install --system https://github.com/mrexodia/ida-pro-mcp/archive/refs/heads/main.zip`
   );
 
   if (installResult.code !== 0) {

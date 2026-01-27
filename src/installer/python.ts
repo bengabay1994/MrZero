@@ -20,7 +20,7 @@ export async function installPythonTool(toolName: string): Promise<boolean> {
   }
 
   // Install using uv
-  const installCmd = tool.installCommand || `uv pip install ${toolName}`;
+  const installCmd = tool.installCommand || `uv pip install --system ${toolName}`;
   const result = await exec(installCmd);
 
   if (result.code === 0) {

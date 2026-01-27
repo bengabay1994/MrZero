@@ -88,7 +88,7 @@ export const PYTHON_TOOLS: Record<string, ToolConfig> = {
     description: 'CTF framework and exploit development library',
     installMethod: 'uv',
     checkCommand: 'python3 -c "import pwn"',
-    installCommand: 'uv pip install pwntools',
+    installCommand: 'uv pip install --system pwntools',
   },
   ropper: {
     name: 'ropper',
@@ -96,7 +96,7 @@ export const PYTHON_TOOLS: Record<string, ToolConfig> = {
     description: 'ROP gadget finder and binary analysis',
     installMethod: 'uv',
     checkCommand: 'ropper --version',
-    installCommand: 'uv pip install ropper',
+    installCommand: 'uv pip install --system ropper',
   },
 };
 
