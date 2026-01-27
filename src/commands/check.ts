@@ -23,6 +23,7 @@ import {
 import { DOCKER_IMAGE, DOCKER_TOOLS, PYTHON_TOOLS, RUBY_TOOLS } from '../config/tools.js';
 import { AGENTS } from '../config/agents.js';
 import { MCP_SERVERS } from '../config/mcp-servers.js';
+import { createRubyWrapper } from '../installer/ruby.js';
 
 interface CheckOptions {
   verbose?: boolean;
@@ -97,7 +98,20 @@ export async function checkCommand(options: CheckOptions): Promise<void> {
     const rubyStatus: [string, string][] = [];
     for (const toolName of rubyToolNames) {
       const status = await detectRubyGem(toolName);
-      rubyStatus.push([toolName, formatStatus(status.installed)]);
+      if (status.installed && !status.callable) {
+        // Auto-fix: create wrapper for installed but not callable gems
+        logger.info(`Creating wrapper for ${toolName}...`);
+        const wrapperCreated = await createRubyWrapper(toolName);
+        if (wrapperCreated) {
+          rubyStatus.push([toolName, chalk.green('✓ installed') + chalk.dim(' (wrapper created)')]);
+        } else {
+          rubyStatus.push([toolName, chalk.yellow('⚠ installed but not in PATH')]);
+        }
+      } else if (status.installed) {
+        rubyStatus.push([toolName, formatStatus(status.installed)]);
+      } else {
+        rubyStatus.push([toolName, formatStatus(status.installed)]);
+      }
     }
     logger.table(rubyStatus);
   }

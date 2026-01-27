@@ -338,13 +338,26 @@ export async function detectPythonPackage(packageName: string): Promise<ToolStat
   return { name: packageName, installed: false };
 }
 
-// Check if a Ruby gem is installed
-export async function detectRubyGem(gemName: string): Promise<ToolStatus> {
+// Check if a Ruby gem is installed and callable
+export async function detectRubyGem(gemName: string): Promise<ToolStatus & { callable: boolean }> {
+  // Check if gem is installed
   const result = await exec(`gem list -i ${gemName}`);
-  if (result.code === 0 && result.stdout.includes('true')) {
-    return { name: gemName, installed: true };
+  const isInstalled = result.code === 0 && result.stdout.includes('true');
+
+  if (!isInstalled) {
+    return { name: gemName, installed: false, callable: false };
   }
-  return { name: gemName, installed: false };
+
+  // Check if callable via PATH (wrapper exists and works)
+  const callableResult = await exec(`command -v ${gemName}`);
+  const isCallable = callableResult.code === 0;
+
+  return {
+    name: gemName,
+    installed: true,
+    callable: isCallable,
+    path: isCallable ? callableResult.stdout.trim() : undefined,
+  };
 }
 
 // Check if Docker image exists
