@@ -14,10 +14,19 @@ import { AGENTS } from '../config/agents.js';
 
 export type Platform = 'claude-code' | 'opencode';
 
-interface McpServerConfig {
+// Claude Code MCP config format
+interface ClaudeMcpServerConfig {
   command: string;
   args?: string[];
   env?: Record<string, string>;
+}
+
+// OpenCode MCP config format
+interface OpenCodeMcpServerConfig {
+  type: 'local';
+  command: string[];
+  enabled: boolean;
+  environment?: Record<string, string>;
 }
 
 // Get the path to the agents directory in the package
@@ -39,11 +48,11 @@ function expandMrZeroDir(str: string): string {
   return str.replace(/\$\{MRZERO_DIR\}/g, getMrZeroDir());
 }
 
-function buildClaudeMcpConfig(serverName: string): McpServerConfig | null {
+function buildClaudeMcpConfig(serverName: string): ClaudeMcpServerConfig | null {
   const server = MCP_SERVERS[serverName];
   if (!server) return null;
 
-  const config: McpServerConfig = {
+  const config: ClaudeMcpServerConfig = {
     command: server.command,
   };
 
@@ -58,20 +67,24 @@ function buildClaudeMcpConfig(serverName: string): McpServerConfig | null {
   return config;
 }
 
-function buildOpenCodeMcpConfig(serverName: string): McpServerConfig | null {
+function buildOpenCodeMcpConfig(serverName: string): OpenCodeMcpServerConfig | null {
   const server = MCP_SERVERS[serverName];
   if (!server) return null;
 
-  const config: McpServerConfig = {
-    command: server.command,
-  };
-
+  // Build the command array
+  const commandArray: string[] = [server.command];
   if (server.args) {
-    config.args = server.args.map(expandMrZeroDir);
+    commandArray.push(...server.args.map(expandMrZeroDir));
   }
 
+  const config: OpenCodeMcpServerConfig = {
+    type: 'local',
+    command: commandArray,
+    enabled: true,
+  };
+
   if (server.env) {
-    config.env = server.env;
+    config.environment = server.env;
   }
 
   return config;
