@@ -19,8 +19,8 @@ export async function installPythonTool(toolName: string): Promise<boolean> {
     return false;
   }
 
-  // Install using uv tool (creates isolated environment)
-  const installCmd = tool.installCommand || `uv tool install ${toolName}`;
+  // Install using uv tool (creates isolated environment with Python 3.12 for compatibility)
+  const installCmd = tool.installCommand || `uv tool install --python 3.12 ${toolName}`;
   const result = await exec(installCmd);
 
   if (result.code === 0) {

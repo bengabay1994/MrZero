@@ -313,8 +313,24 @@ export async function detectIdaFree(): Promise<ToolStatus> {
   return { name: 'ida-free', installed: false };
 }
 
-// Check if a Python package is installed
+// Check if a Python package is installed (via uv tool or system)
 export async function detectPythonPackage(packageName: string): Promise<ToolStatus> {
+  // First check if the CLI tool exists (for uv tool installs)
+  const cliCommands: Record<string, string> = {
+    'pwn': 'pwn version',
+    'pwntools': 'pwn version',
+    'ropper': 'ropper --version',
+  };
+  
+  const cliCheck = cliCommands[packageName];
+  if (cliCheck) {
+    const cliResult = await exec(`${cliCheck} 2>&1`);
+    if (cliResult.code === 0) {
+      return { name: packageName, installed: true };
+    }
+  }
+  
+  // Fallback to Python import check
   const result = await exec(`python3 -c "import ${packageName.replace('-', '_')}" 2>&1`);
   if (result.code === 0) {
     return { name: packageName, installed: true };
