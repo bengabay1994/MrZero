@@ -3,10 +3,8 @@ export interface AgentConfig {
   displayName: string;
   description: string;
   filename: string;
-  dockerTools: string[];
-  pythonTools: string[];
-  rubyTools: string[];
-  systemTools: string[];
+  dockerTools: string[];  // All CLI tools are now Docker-based
+  systemTools: string[];  // Tools that must be on host (for MCP servers)
   mcpServers: string[];
 }
 
@@ -17,8 +15,6 @@ export const AGENTS: Record<string, AgentConfig> = {
     description: 'Attack surface mapping and analysis',
     filename: 'MrZeroMapperOS.md',
     dockerTools: ['opengrep', 'gitleaks', 'codeql', 'joern', 'bearer', 'linguist', 'tree-sitter'],
-    pythonTools: [],
-    rubyTools: [],
     systemTools: [],
     mcpServers: [],
   },
@@ -28,8 +24,6 @@ export const AGENTS: Record<string, AgentConfig> = {
     description: 'Vulnerability hunting and detection',
     filename: 'MrZeroVulnHunterOS.md',
     dockerTools: ['opengrep', 'codeql', 'joern', 'infer', 'gitleaks', 'slither', 'trivy'],
-    pythonTools: [],
-    rubyTools: [],
     systemTools: [],
     mcpServers: [],
   },
@@ -38,9 +32,9 @@ export const AGENTS: Record<string, AgentConfig> = {
     displayName: 'MrZero Exploit Developer',
     description: 'Exploit development and testing',
     filename: 'MrZeroExploitDeveloper.md',
-    dockerTools: [],
-    pythonTools: ['pwntools', 'ropper'],
-    rubyTools: ['one_gadget'],
+    // pwntools, ropper, one_gadget are now Docker-based
+    dockerTools: ['pwntools', 'ropper', 'one_gadget'],
+    // GDB must be on host for pwndbg MCP server
     systemTools: ['gdb', 'checksec'],
     mcpServers: ['pwndbg-mcp', 'ghidra-mcp', 'metasploit-mcp', 'ida-pro-mcp'],
   },
@@ -50,8 +44,6 @@ export const AGENTS: Record<string, AgentConfig> = {
     description: 'Test environment setup and configuration',
     filename: 'MrZeroEnvBuilder.md',
     dockerTools: [],
-    pythonTools: [],
-    rubyTools: [],
     systemTools: ['docker'],
     mcpServers: [],
   },
@@ -68,18 +60,6 @@ export function getAllAgents(): AgentConfig[] {
 export function getUniqueDockerTools(agents: AgentConfig[]): string[] {
   const tools = new Set<string>();
   agents.forEach((agent) => agent.dockerTools.forEach((tool) => tools.add(tool)));
-  return Array.from(tools);
-}
-
-export function getUniquePythonTools(agents: AgentConfig[]): string[] {
-  const tools = new Set<string>();
-  agents.forEach((agent) => agent.pythonTools.forEach((tool) => tools.add(tool)));
-  return Array.from(tools);
-}
-
-export function getUniqueRubyTools(agents: AgentConfig[]): string[] {
-  const tools = new Set<string>();
-  agents.forEach((agent) => agent.rubyTools.forEach((tool) => tools.add(tool)));
   return Array.from(tools);
 }
 

@@ -16,17 +16,13 @@ import {
   AGENTS,
   getAllAgents,
   getUniqueDockerTools,
-  getUniquePythonTools,
-  getUniqueRubyTools,
   getUniqueMcpServers,
   AgentConfig,
 } from '../config/agents.js';
 import { MCP_SERVERS, getAllMcpServers } from '../config/mcp-servers.js';
-import { DOCKER_TOOLS, PYTHON_TOOLS, RUBY_TOOLS } from '../config/tools.js';
+import { DOCKER_TOOLS } from '../config/tools.js';
 import chalk from 'chalk';
 import { ensureDockerImage, createAllWrappers } from '../installer/docker.js';
-import { installAllPythonTools } from '../installer/python.js';
-import { installAllRubyTools } from '../installer/ruby.js';
 import { installAllMcpServers, McpInstallResult } from '../installer/mcp.js';
 import { configurePlatform, Platform } from '../installer/platforms.js';
 
@@ -203,26 +199,15 @@ async function selectMcpServers(agentMcpServers: string[], skipMcp: boolean): Pr
   return selected;
 }
 
-interface ToolSelection {
-  dockerTools: string[];
-  pythonTools: string[];
-  rubyTools: string[];
-}
-
 async function selectTools(
-  recommendedDockerTools: string[],
-  recommendedPythonTools: string[],
-  recommendedRubyTools: string[],
+  recommendedTools: string[],
   skipDocker: boolean
-): Promise<ToolSelection> {
-  // Collect all available tools
-  const allDockerTools = Object.values(DOCKER_TOOLS);
-  const allPythonTools = Object.values(PYTHON_TOOLS);
-  const allRubyTools = Object.values(RUBY_TOOLS);
+): Promise<string[]> {
+  // All tools are now Docker-based
+  const allTools = Object.values(DOCKER_TOOLS);
 
-  // If skipping docker, only show Python and Ruby tools
-  if (skipDocker && allPythonTools.length === 0 && allRubyTools.length === 0) {
-    return { dockerTools: [], pythonTools: [], rubyTools: [] };
+  if (skipDocker || allTools.length === 0) {
+    return [];
   }
 
   logger.blank();
@@ -235,98 +220,35 @@ async function selectTools(
   console.log(chalk.cyan('  ├─────────────────────────────────────────────────────────────────────┤'));
   console.log(chalk.cyan('  │') + '  Select which security tools you want to install.                   ' + chalk.cyan('│'));
   console.log(chalk.cyan('  │') + '                                                                     ' + chalk.cyan('│'));
-  console.log(chalk.cyan('  │') + '  Only selected tools will be:                                       ' + chalk.cyan('│'));
-  console.log(chalk.cyan('  │') + '    • Available as CLI commands on your system                       ' + chalk.cyan('│'));
-  console.log(chalk.cyan('  │') + '    • Mentioned in the AI agent system prompts                       ' + chalk.cyan('│'));
+  console.log(chalk.cyan('  │') + '  All tools run inside Docker containers. Only selected tools       ' + chalk.cyan('│'));
+  console.log(chalk.cyan('  │') + '  will have CLI wrappers created on your system.                    ' + chalk.cyan('│'));
   console.log(chalk.cyan('  │') + '                                                                     ' + chalk.cyan('│'));
   console.log(chalk.cyan('  │') + chalk.dim('  Tools marked [recommended] are used by your selected agents.       ') + chalk.cyan('│'));
   console.log(chalk.cyan('  └─────────────────────────────────────────────────────────────────────┘'));
   console.log('');
 
-  const selectedDockerTools: string[] = [];
-  const selectedPythonTools: string[] = [];
-  const selectedRubyTools: string[] = [];
+  const choices = allTools.map((tool) => {
+    const isRecommended = recommendedTools.includes(tool.name);
+    return {
+      name: tool.name,
+      message: `${tool.displayName} - ${tool.description}${isRecommended ? chalk.green(' [recommended]') : ''}`,
+      value: tool.name,
+    };
+  });
 
-  // Docker tools selection
-  if (!skipDocker && allDockerTools.length > 0) {
-    const dockerChoices = allDockerTools.map((tool) => {
-      const isRecommended = recommendedDockerTools.includes(tool.name);
-      return {
-        name: tool.name,
-        message: `${tool.displayName} - ${tool.description}${isRecommended ? chalk.green(' [recommended]') : ''}`,
-        value: tool.name,
-      };
-    });
+  const prompt = new MultiSelect({
+    name: 'tools',
+    message: 'Select security tools to install:',
+    choices,
+    initial: recommendedTools, // Pre-select recommended tools
+  });
 
-    const dockerPrompt = new MultiSelect({
-      name: 'dockerTools',
-      message: 'Select Docker-wrapped security tools:',
-      choices: dockerChoices,
-      initial: recommendedDockerTools, // Pre-select recommended tools
-    });
-
-    const selected = await dockerPrompt.run();
-    selectedDockerTools.push(...selected);
-  }
-
-  // Python tools selection
-  if (allPythonTools.length > 0) {
-    const pythonChoices = allPythonTools.map((tool) => {
-      const isRecommended = recommendedPythonTools.includes(tool.name);
-      return {
-        name: tool.name,
-        message: `${tool.displayName} - ${tool.description}${isRecommended ? chalk.green(' [recommended]') : ''}`,
-        value: tool.name,
-      };
-    });
-
-    logger.blank();
-    const pythonPrompt = new MultiSelect({
-      name: 'pythonTools',
-      message: 'Select Python tools (via uv):',
-      choices: pythonChoices,
-      initial: recommendedPythonTools,
-    });
-
-    const selected = await pythonPrompt.run();
-    selectedPythonTools.push(...selected);
-  }
-
-  // Ruby tools selection
-  if (allRubyTools.length > 0) {
-    const rubyChoices = allRubyTools.map((tool) => {
-      const isRecommended = recommendedRubyTools.includes(tool.name);
-      return {
-        name: tool.name,
-        message: `${tool.displayName} - ${tool.description}${isRecommended ? chalk.green(' [recommended]') : ''}`,
-        value: tool.name,
-      };
-    });
-
-    logger.blank();
-    const rubyPrompt = new MultiSelect({
-      name: 'rubyTools',
-      message: 'Select Ruby tools (via gem):',
-      choices: rubyChoices,
-      initial: recommendedRubyTools,
-    });
-
-    const selected = await rubyPrompt.run();
-    selectedRubyTools.push(...selected);
-  }
-
-  return {
-    dockerTools: selectedDockerTools,
-    pythonTools: selectedPythonTools,
-    rubyTools: selectedRubyTools,
-  };
+  return await prompt.run();
 }
 
 async function confirmInstallation(
   agents: AgentConfig[],
-  dockerTools: string[],
-  pythonTools: string[],
-  rubyTools: string[],
+  tools: string[],
   mcpServers: string[],
   platforms: Platform[],
   skipConfirm: boolean
@@ -337,22 +259,10 @@ async function confirmInstallation(
   logger.subheader('Agents:');
   logger.list(agents.map((a) => a.displayName));
 
-  if (dockerTools.length > 0) {
+  if (tools.length > 0) {
     logger.blank();
-    logger.subheader('Docker-wrapped CLI tools:');
-    logger.list(dockerTools);
-  }
-
-  if (pythonTools.length > 0) {
-    logger.blank();
-    logger.subheader('Python tools (via uv):');
-    logger.list(pythonTools);
-  }
-
-  if (rubyTools.length > 0) {
-    logger.blank();
-    logger.subheader('Ruby tools (via gem):');
-    logger.list(rubyTools);
+    logger.subheader('Security tools (Docker-based):');
+    logger.list(tools);
   }
 
   if (mcpServers.length > 0) {
@@ -431,22 +341,14 @@ export async function installCommand(options: InstallOptions): Promise<void> {
     process.exit(1);
   }
 
-  // Get recommended tools based on selected agents
-  const recommendedDockerTools = getUniqueDockerTools(selectedAgents);
-  const recommendedPythonTools = getUniquePythonTools(selectedAgents);
-  const recommendedRubyTools = getUniqueRubyTools(selectedAgents);
+  // Get recommended tools based on selected agents (all tools are now Docker-based)
+  const recommendedTools = getUniqueDockerTools(selectedAgents);
   
   // Let user select which tools to install
-  const toolSelection = await selectTools(
-    recommendedDockerTools,
-    recommendedPythonTools,
-    recommendedRubyTools,
+  const selectedTools = await selectTools(
+    recommendedTools,
     options.skipDocker || false
   );
-  
-  const dockerTools = toolSelection.dockerTools;
-  const pythonTools = toolSelection.pythonTools;
-  const rubyTools = toolSelection.rubyTools;
   
   // Get MCP servers recommended for selected agents
   const agentMcpServers = getUniqueMcpServers(selectedAgents);
@@ -454,19 +356,10 @@ export async function installCommand(options: InstallOptions): Promise<void> {
   // Let user select which MCP servers to install
   const mcpServers = await selectMcpServers(agentMcpServers, options.skipMcp || false);
 
-  // Combine all selected tools for template rendering
-  const allSelectedTools = [
-    ...dockerTools,
-    ...pythonTools,
-    ...rubyTools,
-  ];
-
   // Confirm installation
   const confirmed = await confirmInstallation(
     selectedAgents,
-    dockerTools,
-    pythonTools,
-    rubyTools,
+    selectedTools,
     mcpServers,
     selectedPlatforms,
     options.yes || false
@@ -479,25 +372,15 @@ export async function installCommand(options: InstallOptions): Promise<void> {
 
   logger.blank();
 
-  // Install Docker tools
-  if (dockerTools.length > 0) {
-    logger.header('Installing Docker tools');
+  // Install Docker tools (all tools are now Docker-based)
+  if (selectedTools.length > 0) {
+    logger.header('Installing security tools');
     const imageReady = await ensureDockerImage();
     if (imageReady) {
-      await createAllWrappers(dockerTools);
+      await createAllWrappers(selectedTools);
     } else {
-      logger.error('Failed to setup Docker image. Docker tools will not be available.');
+      logger.error('Failed to setup Docker image. Tools will not be available.');
     }
-  }
-
-  // Install Python tools
-  if (pythonTools.length > 0) {
-    await installAllPythonTools(pythonTools);
-  }
-
-  // Install Ruby tools
-  if (rubyTools.length > 0) {
-    await installAllRubyTools(rubyTools);
   }
 
   // Install MCP servers
@@ -512,7 +395,7 @@ export async function installCommand(options: InstallOptions): Promise<void> {
     .map((r) => r.name);
 
   for (const platform of selectedPlatforms) {
-    await configurePlatform(platform, installedMcpServers, selectedAgentNames, allSelectedTools);
+    await configurePlatform(platform, installedMcpServers, selectedAgentNames, selectedTools);
   }
 
   // Show completion message

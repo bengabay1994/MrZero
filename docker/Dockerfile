@@ -106,6 +106,19 @@ RUN gem install github-linguist
 RUN uv pip install --system tree-sitter
 
 # ============================================
+# Exploitation Tools
+# ============================================
+
+# pwntools - CTF framework and exploit development
+RUN uv pip install --system pwntools
+
+# Ropper - ROP gadget finder
+RUN uv pip install --system ropper
+
+# one_gadget - Find one-shot RCE gadgets in libc
+RUN gem install one_gadget
+
+# ============================================
 # Cleanup
 # ============================================
 RUN apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
