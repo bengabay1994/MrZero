@@ -11,6 +11,7 @@ import {
 } from '../utils/platform.js';
 import { MCP_SERVERS } from '../config/mcp-servers.js';
 import { AGENTS } from '../config/agents.js';
+import { renderAgentTemplate, agentHasTemplate, RenderContext } from './template-renderer.js';
 
 export type Platform = 'claude-code' | 'opencode';
 
@@ -42,6 +43,21 @@ function getPackageAgentsDir(): string {
     return srcAgents;
   }
   throw new Error('Could not find agents directory');
+}
+
+// Get the path to the templates directory in the package
+function getPackageTemplatesDir(): string {
+  // When running from dist, templates are at ../agents/templates relative to dist
+  const distTemplates = path.join(__dirname, '..', '..', 'agents', 'templates');
+  if (fs.existsSync(distTemplates)) {
+    return distTemplates;
+  }
+  // When running from source
+  const srcTemplates = path.join(__dirname, '..', '..', '..', 'agents', 'templates');
+  if (fs.existsSync(srcTemplates)) {
+    return srcTemplates;
+  }
+  throw new Error('Could not find templates directory');
 }
 
 function expandMrZeroDir(str: string): string {
@@ -92,7 +108,8 @@ function buildOpenCodeMcpConfig(serverName: string): OpenCodeMcpServerConfig | n
 
 export async function configureClaudeCode(
   mcpServers: string[],
-  agents: string[]
+  agents: string[],
+  installedTools: string[]
 ): Promise<void> {
   logger.header('Configuring Claude Code');
 
@@ -103,20 +120,50 @@ export async function configureClaudeCode(
   fs.mkdirSync(claudeDir, { recursive: true });
   fs.mkdirSync(agentsDir, { recursive: true });
 
-  // Copy agent files
+  // Install agent files (either from template or static)
   const packageAgentsDir = getPackageAgentsDir();
+  const templatesDir = getPackageTemplatesDir();
+  
+  const renderContext: RenderContext = {
+    installedTools,
+    installedMcpServers: mcpServers,
+  };
+
   for (const agentName of agents) {
     const agent = AGENTS[agentName];
     if (!agent) continue;
 
-    const srcPath = path.join(packageAgentsDir, agent.filename);
     const destPath = path.join(agentsDir, agent.filename);
-
-    if (fs.existsSync(srcPath)) {
-      fs.copyFileSync(srcPath, destPath);
-      logger.success(`Installed agent: ${agent.displayName}`);
+    
+    // Check if this agent has a template
+    if (agentHasTemplate(agentName)) {
+      const templatePath = path.join(templatesDir, `${agentName}.template.md`);
+      
+      if (fs.existsSync(templatePath)) {
+        // Read template and render with installed tools
+        const templateContent = fs.readFileSync(templatePath, 'utf-8');
+        const renderedContent = renderAgentTemplate(agentName, templateContent, renderContext);
+        fs.writeFileSync(destPath, renderedContent);
+        logger.success(`Installed agent: ${agent.displayName} (customized for installed tools)`);
+      } else {
+        // Fallback to static file if template not found
+        const srcPath = path.join(packageAgentsDir, agent.filename);
+        if (fs.existsSync(srcPath)) {
+          fs.copyFileSync(srcPath, destPath);
+          logger.success(`Installed agent: ${agent.displayName}`);
+        } else {
+          logger.warning(`Agent file not found: ${agent.filename}`);
+        }
+      }
     } else {
-      logger.warning(`Agent file not found: ${agent.filename}`);
+      // Static agent (no template needed, like MrZeroEnvBuilder)
+      const srcPath = path.join(packageAgentsDir, agent.filename);
+      if (fs.existsSync(srcPath)) {
+        fs.copyFileSync(srcPath, destPath);
+        logger.success(`Installed agent: ${agent.displayName}`);
+      } else {
+        logger.warning(`Agent file not found: ${agent.filename}`);
+      }
     }
   }
 
@@ -155,7 +202,8 @@ export async function configureClaudeCode(
 
 export async function configureOpenCode(
   mcpServers: string[],
-  agents: string[]
+  agents: string[],
+  installedTools: string[]
 ): Promise<void> {
   logger.header('Configuring OpenCode');
 
@@ -166,20 +214,50 @@ export async function configureOpenCode(
   fs.mkdirSync(openCodeDir, { recursive: true });
   fs.mkdirSync(agentsDir, { recursive: true });
 
-  // Copy agent files
+  // Install agent files (either from template or static)
   const packageAgentsDir = getPackageAgentsDir();
+  const templatesDir = getPackageTemplatesDir();
+  
+  const renderContext: RenderContext = {
+    installedTools,
+    installedMcpServers: mcpServers,
+  };
+
   for (const agentName of agents) {
     const agent = AGENTS[agentName];
     if (!agent) continue;
 
-    const srcPath = path.join(packageAgentsDir, agent.filename);
     const destPath = path.join(agentsDir, agent.filename);
-
-    if (fs.existsSync(srcPath)) {
-      fs.copyFileSync(srcPath, destPath);
-      logger.success(`Installed agent: ${agent.displayName}`);
+    
+    // Check if this agent has a template
+    if (agentHasTemplate(agentName)) {
+      const templatePath = path.join(templatesDir, `${agentName}.template.md`);
+      
+      if (fs.existsSync(templatePath)) {
+        // Read template and render with installed tools
+        const templateContent = fs.readFileSync(templatePath, 'utf-8');
+        const renderedContent = renderAgentTemplate(agentName, templateContent, renderContext);
+        fs.writeFileSync(destPath, renderedContent);
+        logger.success(`Installed agent: ${agent.displayName} (customized for installed tools)`);
+      } else {
+        // Fallback to static file if template not found
+        const srcPath = path.join(packageAgentsDir, agent.filename);
+        if (fs.existsSync(srcPath)) {
+          fs.copyFileSync(srcPath, destPath);
+          logger.success(`Installed agent: ${agent.displayName}`);
+        } else {
+          logger.warning(`Agent file not found: ${agent.filename}`);
+        }
+      }
     } else {
-      logger.warning(`Agent file not found: ${agent.filename}`);
+      // Static agent (no template needed, like MrZeroEnvBuilder)
+      const srcPath = path.join(packageAgentsDir, agent.filename);
+      if (fs.existsSync(srcPath)) {
+        fs.copyFileSync(srcPath, destPath);
+        logger.success(`Installed agent: ${agent.displayName}`);
+      } else {
+        logger.warning(`Agent file not found: ${agent.filename}`);
+      }
     }
   }
 
@@ -218,14 +296,15 @@ export async function configureOpenCode(
 export async function configurePlatform(
   platform: Platform,
   mcpServers: string[],
-  agents: string[]
+  agents: string[],
+  installedTools: string[]
 ): Promise<void> {
   switch (platform) {
     case 'claude-code':
-      await configureClaudeCode(mcpServers, agents);
+      await configureClaudeCode(mcpServers, agents, installedTools);
       break;
     case 'opencode':
-      await configureOpenCode(mcpServers, agents);
+      await configureOpenCode(mcpServers, agents, installedTools);
       break;
   }
 }
