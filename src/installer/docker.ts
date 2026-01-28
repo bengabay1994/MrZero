@@ -142,9 +142,10 @@ export async function createAllWrappers(tools: string[]): Promise<void> {
   const pathEnv = process.env.PATH || '';
   if (!pathEnv.includes(wrappersDir)) {
     logger.blank();
-    logger.warning(`${wrappersDir} is not in your PATH`);
-    logger.info(`Add this to your shell config (~/.bashrc or ~/.zshrc):`);
-    logger.info(`  export PATH="$HOME/.local/bin:$PATH"`);
+    logger.info(`Note: Tools installed to ${wrappersDir}`);
+    logger.info(`Use the MrZero launcher to ensure correct PATH:`);
+    logger.info(`  mrzero opencode`);
+    logger.info(`  mrzero claude`);
   }
 }
 

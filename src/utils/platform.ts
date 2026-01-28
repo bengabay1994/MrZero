@@ -36,7 +36,37 @@ export function getMcpServersDir(): string {
 }
 
 export function getWrappersDir(): string {
-  return path.join(getHomeDir(), '.local', 'bin');
+  return path.join(getHomeDir(), '.local', 'bin', 'mrzero-tools');
+}
+
+export function getLauncherPath(): string {
+  return path.join(getHomeDir(), '.local', 'bin', 'mrzero');
+}
+
+export function getLauncherBinaryName(): string {
+  const platform = os.platform();  // 'linux', 'darwin', 'win32'
+  const arch = os.arch();          // 'x64', 'arm64'
+
+  const osMap: Record<string, string> = {
+    'linux': 'linux',
+    'darwin': 'darwin',
+    'win32': 'windows',
+  };
+
+  const archMap: Record<string, string> = {
+    'x64': 'amd64',
+    'arm64': 'arm64',
+  };
+
+  const goos = osMap[platform];
+  const goarch = archMap[arch];
+
+  if (!goos || !goarch) {
+    throw new Error(`Unsupported platform: ${platform}-${arch}`);
+  }
+
+  const ext = platform === 'win32' ? '.exe' : '';
+  return `mrzero-${goos}-${goarch}${ext}`;
 }
 
 export function getClaudeConfigDir(): string {

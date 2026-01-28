@@ -25,6 +25,7 @@ import chalk from 'chalk';
 import { ensureDockerImage, createAllWrappers } from '../installer/docker.js';
 import { installAllMcpServers, McpInstallResult } from '../installer/mcp.js';
 import { configurePlatform, Platform } from '../installer/platforms.js';
+import { downloadLauncher } from '../installer/launcher.js';
 
 const { MultiSelect, Confirm } = enquirer as any;
 
@@ -389,6 +390,10 @@ export async function installCommand(options: InstallOptions): Promise<void> {
     mcpResults = await installAllMcpServers(mcpServers);
   }
 
+  // Install launcher binary
+  logger.header('Installing MrZero launcher');
+  const launcherInstalled = await downloadLauncher();
+
   // Configure platforms
   const installedMcpServers = mcpResults
     .filter((r) => r.installed)
@@ -407,17 +412,23 @@ export async function installCommand(options: InstallOptions): Promise<void> {
 
   // Show quick start
   logger.blank();
-  logger.info('Quick start:');
-  logger.info('  npx mrzero check    # Verify installation');
-  logger.info('  npx mrzero --help   # See all commands');
-
-  if (selectedPlatforms.includes('claude-code')) {
-    logger.blank();
-    logger.info('Restart Claude Code to load the new agents and MCP servers.');
+  if (launcherInstalled) {
+    logger.info('To start using MrZero:');
+    logger.info('  mrzero opencode     # Launch OpenCode with MrZero tools');
+    logger.info('  mrzero claude       # Launch Claude Code with MrZero tools');
+  } else {
+    logger.info('To start using MrZero (manual PATH setup required):');
+    logger.info('  export PATH="$HOME/.local/bin/mrzero-tools:$PATH"');
+    logger.info('  opencode            # Or: claude');
   }
 
-  if (selectedPlatforms.includes('opencode')) {
+  logger.blank();
+  logger.info('For maintenance:');
+  logger.info('  npx @bengabay94/mrzero@alpha check       # Verify installation');
+  logger.info('  npx @bengabay94/mrzero@alpha uninstall   # Remove MrZero');
+
+  if (selectedPlatforms.includes('claude-code') || selectedPlatforms.includes('opencode')) {
     logger.blank();
-    logger.info('Restart OpenCode to load the new agents and MCP servers.');
+    logger.info('Note: Restart your AI coding platform to load the new agents and MCP servers.');
   }
 }

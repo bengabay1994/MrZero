@@ -6,18 +6,18 @@ import {
   getMcpServersDir,
   getClaudeAgentsDir,
   getOpenCodeAgentsDir,
+  getWrappersDir,
 } from '../utils/platform.js';
 import { removeWrappers, removeDockerImage } from '../installer/docker.js';
-import { uninstallPythonTool } from '../installer/python.js';
-import { uninstallRubyTool } from '../installer/ruby.js';
 import { uninstallMcpServer } from '../installer/mcp.js';
 import {
   removeAgentsFromPlatform,
   removeMcpServersFromPlatform,
 } from '../installer/platforms.js';
-import { DOCKER_TOOLS, PYTHON_TOOLS, RUBY_TOOLS } from '../config/tools.js';
+import { DOCKER_TOOLS } from '../config/tools.js';
 import { AGENTS } from '../config/agents.js';
 import { MCP_SERVERS } from '../config/mcp-servers.js';
+import { removeLauncher } from '../installer/launcher.js';
 
 const { Confirm } = enquirer as any;
 
@@ -49,21 +49,23 @@ export async function uninstallCommand(options: UninstallOptions): Promise<void>
 
   logger.blank();
 
+  // Remove launcher binary
+  logger.step('Removing MrZero launcher...');
+  await removeLauncher();
+
   // Remove CLI wrappers
   logger.step('Removing CLI wrappers...');
   const dockerTools = Object.keys(DOCKER_TOOLS);
   await removeWrappers(dockerTools);
 
-  // Remove Python tools
-  logger.step('Removing Python tools...');
-  for (const toolName of Object.keys(PYTHON_TOOLS)) {
-    await uninstallPythonTool(toolName);
-  }
-
-  // Remove Ruby tools
-  logger.step('Removing Ruby tools...');
-  for (const toolName of Object.keys(RUBY_TOOLS)) {
-    await uninstallRubyTool(toolName);
+  // Remove wrappers directory if empty
+  const wrappersDir = getWrappersDir();
+  if (fs.existsSync(wrappersDir)) {
+    const files = fs.readdirSync(wrappersDir);
+    if (files.length === 0) {
+      fs.rmdirSync(wrappersDir);
+      logger.success(`Removed empty directory ${wrappersDir}`);
+    }
   }
 
   // Remove MCP servers
