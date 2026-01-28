@@ -58,10 +58,6 @@ export const TOOL_STRINGS: Record<string, AgentToolStrings> = {
       TOOL_LIST_LINGUIST: '   - **Linguist**: Language detection and codebase composition analysis',
       TOOL_USAGE_LINGUIST: '- Run Linguist to understand language composition',
     },
-    'tree-sitter': {
-      TOOL_LIST_TREESITTER: '   - **Tree-sitter**: Syntax tree parsing for code understanding',
-      TOOL_USAGE_TREESITTER: '- Parse code with Tree-sitter for detailed syntax analysis when needed',
-    },
   },
 
   // ============================================================================
@@ -76,9 +72,6 @@ export const TOOL_STRINGS: Record<string, AgentToolStrings> = {
     },
     joern: {
       TOOL_DESC_JOERN: `**Joern**: Utilize for code property graph analysis, especially effective for discovering complex control-flow and data-flow vulnerabilities in C/C++ code.`,
-    },
-    infer: {
-      TOOL_DESC_INFER: `**Infer**: Apply for static analysis of memory safety issues, null pointer dereferences, and resource leaks in Java, C, C++, and Objective-C.`,
     },
     gitleaks: {
       TOOL_DESC_GITLEAKS: `**Gitleaks**: Scan for accidentally committed secrets, private keys, API tokens, and sensitive credentials in git history.`,

@@ -38,13 +38,6 @@ export const DOCKER_TOOLS: Record<string, ToolConfig> = {
     installMethod: 'docker',
     wrapperName: 'joern',
   },
-  infer: {
-    name: 'infer',
-    displayName: 'Infer',
-    description: 'Static analysis for memory safety issues',
-    installMethod: 'docker',
-    wrapperName: 'infer',
-  },
   bearer: {
     name: 'bearer',
     displayName: 'Bearer',
@@ -72,13 +65,6 @@ export const DOCKER_TOOLS: Record<string, ToolConfig> = {
     description: 'Language detection and codebase composition analysis',
     installMethod: 'docker',
     wrapperName: 'linguist',
-  },
-  'tree-sitter': {
-    name: 'tree-sitter',
-    displayName: 'Tree-sitter',
-    description: 'Syntax tree parsing for code understanding',
-    installMethod: 'docker',
-    wrapperName: 'tree-sitter',
   },
   // Exploitation Tools
   pwntools: {

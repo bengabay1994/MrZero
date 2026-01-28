@@ -107,9 +107,6 @@ export async function createWrapperScript(toolName: string): Promise<boolean> {
     case 'linguist':
       toolCommand = 'github-linguist';
       break;
-    case 'tree-sitter':
-      toolCommand = 'python3 -m tree_sitter';
-      break;
     default:
       toolCommand = toolName;
   }

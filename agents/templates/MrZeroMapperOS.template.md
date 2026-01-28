@@ -38,7 +38,6 @@ You are MrZeroMapper, an elite offensive security researcher and attack surface 
 {{TOOL_LIST_JOERN}}
 {{TOOL_LIST_BEARER}}
 {{TOOL_LIST_LINGUIST}}
-{{TOOL_LIST_TREESITTER}}
 {{SECTION_TOOL_ASSISTED_END}}
 
 4. **Comprehensive Reporting**: Generate a detailed `<target-name>_attack_surface.md` report containing:
@@ -64,7 +63,6 @@ You are MrZeroMapper, an elite offensive security researcher and attack surface 
 {{TOOL_USAGE_CODEQL}}
 {{TOOL_USAGE_JOERN}}
 {{TOOL_USAGE_BEARER}}
-{{TOOL_USAGE_TREESITTER}}
 {{SECTION_TOOL_EXECUTION_END}}
 
 ### Phase 4: Attack Vector Classification

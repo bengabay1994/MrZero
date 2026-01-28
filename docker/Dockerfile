@@ -43,7 +43,8 @@ WORKDIR /tools
 # Gitleaks - Secrets scanning
 # ============================================
 RUN GITLEAKS_VERSION=$(curl -sL https://api.github.com/repos/gitleaks/gitleaks/releases/latest | jq -r '.tag_name' | sed 's/v//') && \
-    curl -sSL "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" | tar xz -C /usr/local/bin gitleaks
+    ARCH=$(uname -m | sed 's/x86_64/x64/;s/aarch64/arm64/') && \
+    curl -sSL "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_${ARCH}.tar.gz" | tar xz -C /usr/local/bin gitleaks
 
 # ============================================
 # Trivy - Vulnerability scanning
@@ -63,16 +64,21 @@ RUN curl -fsSL https://raw.githubusercontent.com/opengrep/opengrep/main/install.
 # ============================================
 # Slither - Solidity smart contract analysis
 # ============================================
-RUN uv pip install --system slither-analyzer solc-select
+RUN uv tool install slither-analyzer
+RUN uv tool install solc-select
+ENV PATH="/root/.local/bin:$PATH"
 RUN solc-select install latest && solc-select use latest
 
 # ============================================
 # CodeQL - Semantic code analysis
+# Download from codeql-action releases (includes ARM64 support)
 # ============================================
 RUN mkdir -p /opt/codeql && \
-    curl -sSL -o /tmp/codeql.zip https://github.com/github/codeql-cli-binaries/releases/latest/download/codeql-linux64.zip && \
-    unzip -q /tmp/codeql.zip -d /opt && \
-    rm /tmp/codeql.zip
+    ARCH=$(uname -m | sed 's/x86_64/linux64/;s/aarch64/linuxarm64/') && \
+    CODEQL_VERSION=$(curl -sL https://api.github.com/repos/github/codeql-action/releases/latest | jq -r '.tag_name') && \
+    curl -sSL -o /tmp/codeql.tar.gz "https://github.com/github/codeql-action/releases/download/${CODEQL_VERSION}/codeql-bundle-${ARCH}.tar.gz" && \
+    tar xzf /tmp/codeql.tar.gz -C /opt && \
+    rm /tmp/codeql.tar.gz
 ENV PATH="/opt/codeql:$PATH"
 
 # ============================================
@@ -86,34 +92,19 @@ RUN mkdir -p /opt/joern && \
 ENV PATH="/opt/joern/joern-cli:$PATH"
 
 # ============================================
-# Infer - Static analysis (Facebook)
-# ============================================
-# Note: Infer doesn't support /releases/latest/download/ pattern due to version in filename
-# Using specific version to avoid API rate limits
-RUN curl -sSL -o /tmp/infer.tar.xz https://github.com/facebook/infer/releases/download/v1.2.0/infer-linux-x86_64-v1.2.0.tar.xz && \
-    tar xJf /tmp/infer.tar.xz -C /opt && \
-    rm /tmp/infer.tar.xz && \
-    ln -s /opt/infer-*/bin/infer /usr/local/bin/infer
-
-# ============================================
 # Linguist - Language detection
 # ============================================
 RUN gem install github-linguist
-
-# ============================================
-# Tree-sitter - Syntax parsing
-# ============================================
-RUN uv pip install --system tree-sitter
 
 # ============================================
 # Exploitation Tools
 # ============================================
 
 # pwntools - CTF framework and exploit development
-RUN uv pip install --system pwntools
+RUN uv tool install pwntools
 
 # Ropper - ROP gadget finder
-RUN uv pip install --system ropper
+RUN uv tool install ropper
 
 # one_gadget - Find one-shot RCE gadgets in libc
 RUN gem install one_gadget
