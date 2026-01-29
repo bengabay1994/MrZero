@@ -65,6 +65,8 @@ Leverage your arsenal of security tools strategically:
 
 {{TOOL_DESC_JOERN}}
 
+{{TOOL_DESC_INFER}}
+
 {{TOOL_DESC_GITLEAKS}}
 
 {{TOOL_DESC_SLITHER}}

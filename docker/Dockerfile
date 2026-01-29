@@ -96,6 +96,20 @@ RUN mkdir -p /opt/joern && \
 ENV PATH="/opt/joern/joern-cli:$PATH"
 
 # ============================================
+# Infer - Static analysis (Facebook)
+# Note: Infer only provides linux-x86_64, skip on ARM64
+# ============================================
+RUN ARCH=$(uname -m) && \
+    if [ "$ARCH" = "x86_64" ]; then \
+        curl -sSL -o /tmp/infer.tar.xz https://github.com/facebook/infer/releases/download/v1.2.0/infer-linux-x86_64-v1.2.0.tar.xz && \
+        tar xJf /tmp/infer.tar.xz -C /opt && \
+        rm /tmp/infer.tar.xz && \
+        ln -s /opt/infer-*/bin/infer /usr/local/bin/infer; \
+    else \
+        echo "Infer not available for $ARCH, skipping"; \
+    fi
+
+# ============================================
 # Linguist - Language detection
 # ============================================
 RUN gem install github-linguist

@@ -23,7 +23,7 @@ export const AGENTS: Record<string, AgentConfig> = {
     displayName: 'MrZero VulnHunter',
     description: 'Vulnerability hunting and detection',
     filename: 'MrZeroVulnHunterOS.md',
-    dockerTools: ['opengrep', 'codeql', 'joern', 'gitleaks', 'slither', 'trivy'],
+    dockerTools: ['opengrep', 'codeql', 'joern', 'infer', 'gitleaks', 'slither', 'trivy'],
     systemTools: [],
     mcpServers: [],
   },

@@ -73,6 +73,9 @@ export const TOOL_STRINGS: Record<string, AgentToolStrings> = {
     joern: {
       TOOL_DESC_JOERN: `**Joern**: Utilize for code property graph analysis, especially effective for discovering complex control-flow and data-flow vulnerabilities in C/C++ code.`,
     },
+    infer: {
+      TOOL_DESC_INFER: `**Infer**: Apply for static analysis of memory safety issues, null pointer dereferences, and resource leaks in Java, C, C++, and Objective-C. Note: Only available on x86_64 Linux.`,
+    },
     gitleaks: {
       TOOL_DESC_GITLEAKS: `**Gitleaks**: Scan for accidentally committed secrets, private keys, API tokens, and sensitive credentials in git history.`,
     },

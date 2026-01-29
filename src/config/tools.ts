@@ -38,6 +38,13 @@ export const DOCKER_TOOLS: Record<string, ToolConfig> = {
     installMethod: 'docker',
     wrapperName: 'joern',
   },
+  infer: {
+    name: 'infer',
+    displayName: 'Infer',
+    description: 'Static analysis for memory safety issues (x86_64 only)',
+    installMethod: 'docker',
+    wrapperName: 'infer',
+  },
   bearer: {
     name: 'bearer',
     displayName: 'Bearer',
