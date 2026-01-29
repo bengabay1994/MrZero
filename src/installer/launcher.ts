@@ -2,31 +2,9 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as https from 'https';
 import { logger } from '../utils/logger.js';
-import { getLauncherPath, getLauncherBinaryName } from '../utils/platform.js';
+import { getLauncherPath, getLauncherBinaryName, getPackageVersion } from '../utils/platform.js';
 
 const LAUNCHER_REPO = 'bengabay1994/MrZero';
-
-/**
- * Get the current package version from package.json
- */
-function getPackageVersion(): string {
-  try {
-    // Try to find package.json relative to this file
-    const packagePaths = [
-      path.join(__dirname, '..', '..', 'package.json'),
-      path.join(__dirname, '..', '..', '..', 'package.json'),
-    ];
-    
-    for (const packagePath of packagePaths) {
-      if (fs.existsSync(packagePath)) {
-        const pkg = JSON.parse(fs.readFileSync(packagePath, 'utf-8'));
-        return pkg.version;
-      }
-    }
-  } catch {}
-  
-  return 'latest';
-}
 
 /**
  * Download a file from URL, following redirects

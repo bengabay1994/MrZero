@@ -1,5 +1,6 @@
 import * as os from 'os';
 import * as path from 'path';
+import * as fs from 'fs';
 
 export type Platform = 'linux' | 'darwin' | 'win32' | 'unsupported';
 
@@ -118,4 +119,26 @@ export function isX64(): boolean {
 
 export function isLinuxArm64(): boolean {
   return isLinux() && isArm64();
+}
+
+/**
+ * Get the current package version from package.json
+ */
+export function getPackageVersion(): string {
+  try {
+    // Try to find package.json relative to this file
+    const packagePaths = [
+      path.join(__dirname, '..', '..', 'package.json'),
+      path.join(__dirname, '..', '..', '..', 'package.json'),
+    ];
+    
+    for (const packagePath of packagePaths) {
+      if (fs.existsSync(packagePath)) {
+        const pkg = JSON.parse(fs.readFileSync(packagePath, 'utf-8'));
+        return pkg.version;
+      }
+    }
+  } catch {}
+  
+  return 'latest';
 }
