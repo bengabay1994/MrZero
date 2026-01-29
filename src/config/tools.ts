@@ -1,5 +1,3 @@
-import { getPackageVersion } from '../utils/platform.js';
-
 export interface ToolConfig {
   name: string;
   displayName: string;
@@ -134,6 +132,4 @@ export const SYSTEM_TOOLS: Record<string, ToolConfig> = {
   },
 };
 
-const version = getPackageVersion();
-const dockerTag = version === 'latest' ? 'latest' : `v${version}`;
-export const DOCKER_IMAGE = `ghcr.io/bengabay1994/mrzero-tools:${dockerTag}`;
+export const DOCKER_IMAGE = 'ghcr.io/bengabay1994/mrzero-tools:latest';
