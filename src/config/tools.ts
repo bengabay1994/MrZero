@@ -6,9 +6,12 @@ export interface ToolConfig {
   checkCommand?: string;
   installCommand?: string;
   wrapperName?: string;
+  wrapperNames?: string[];  // For tools that provide multiple executables
+  unsupportedOnLinuxArm64?: boolean;  // True if tool doesn't support Linux ARM64
 }
 
 export const DOCKER_TOOLS: Record<string, ToolConfig> = {
+  // Static Analysis Tools
   opengrep: {
     name: 'opengrep',
     displayName: 'Opengrep',
@@ -26,9 +29,10 @@ export const DOCKER_TOOLS: Record<string, ToolConfig> = {
   codeql: {
     name: 'codeql',
     displayName: 'CodeQL',
-    description: 'Deep semantic code analysis and taint tracking',
+    description: 'Deep semantic code analysis and taint tracking (not available on Linux ARM64)',
     installMethod: 'docker',
     wrapperName: 'codeql',
+    unsupportedOnLinuxArm64: true,
   },
   joern: {
     name: 'joern',
@@ -40,9 +44,10 @@ export const DOCKER_TOOLS: Record<string, ToolConfig> = {
   infer: {
     name: 'infer',
     displayName: 'Infer',
-    description: 'Static analysis for memory safety issues',
+    description: 'Static analysis for memory safety issues (not available on Linux ARM64)',
     installMethod: 'docker',
     wrapperName: 'infer',
+    unsupportedOnLinuxArm64: true,
   },
   bearer: {
     name: 'bearer',
@@ -72,44 +77,39 @@ export const DOCKER_TOOLS: Record<string, ToolConfig> = {
     installMethod: 'docker',
     wrapperName: 'linguist',
   },
-  'tree-sitter': {
-    name: 'tree-sitter',
-    displayName: 'Tree-sitter',
-    description: 'Syntax tree parsing for code understanding',
-    installMethod: 'docker',
-    wrapperName: 'tree-sitter',
-  },
-};
-
-export const PYTHON_TOOLS: Record<string, ToolConfig> = {
+  // Exploitation Tools
   pwntools: {
     name: 'pwntools',
     displayName: 'pwntools',
-    description: 'CTF framework and exploit development library',
-    installMethod: 'uv',
-    checkCommand: 'pwn version',
-    installCommand: 'uv tool install --python 3.12 pwntools',
+    description: 'CTF framework and exploit development library (19 tools)',
+    installMethod: 'docker',
+    wrapperNames: [
+      'asm', 'checksec', 'constgrep', 'cyclic', 'debug', 'disablenx',
+      'disasm', 'elfdiff', 'elfpatch', 'errno', 'hex', 'libcdb',
+      'phd', 'pwn', 'pwnstrip', 'scramble', 'shellcraft', 'template', 'unhex'
+    ],
   },
   ropper: {
     name: 'ropper',
     displayName: 'Ropper',
     description: 'ROP gadget finder and binary analysis',
-    installMethod: 'uv',
-    checkCommand: 'ropper --version',
-    installCommand: 'uv tool install --python 3.12 ropper',
+    installMethod: 'docker',
+    wrapperName: 'ropper',
   },
-};
-
-export const RUBY_TOOLS: Record<string, ToolConfig> = {
   one_gadget: {
     name: 'one_gadget',
     displayName: 'one_gadget',
     description: 'Find one-shot RCE gadgets in libc',
-    installMethod: 'gem',
-    checkCommand: 'one_gadget --version',
-    installCommand: 'gem install one_gadget',
+    installMethod: 'docker',
+    wrapperName: 'one_gadget',
   },
 };
+
+// Keep these for backward compatibility but they're now empty
+// All tools are Docker-based except for MCP-connected tools
+export const PYTHON_TOOLS: Record<string, ToolConfig> = {};
+
+export const RUBY_TOOLS: Record<string, ToolConfig> = {};
 
 export const SYSTEM_TOOLS: Record<string, ToolConfig> = {
   docker: {
@@ -122,7 +122,7 @@ export const SYSTEM_TOOLS: Record<string, ToolConfig> = {
   gdb: {
     name: 'gdb',
     displayName: 'GDB',
-    description: 'GNU Debugger',
+    description: 'GNU Debugger (required for pwndbg MCP)',
     installMethod: 'apt',
     checkCommand: 'gdb --version',
     installCommand: 'sudo apt-get install -y gdb',

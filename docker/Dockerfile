@@ -43,7 +43,8 @@ WORKDIR /tools
 # Gitleaks - Secrets scanning
 # ============================================
 RUN GITLEAKS_VERSION=$(curl -sL https://api.github.com/repos/gitleaks/gitleaks/releases/latest | jq -r '.tag_name' | sed 's/v//') && \
-    curl -sSL "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" | tar xz -C /usr/local/bin gitleaks
+    ARCH=$(uname -m | sed 's/x86_64/x64/;s/aarch64/arm64/') && \
+    curl -sSL "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_${ARCH}.tar.gz" | tar xz -C /usr/local/bin gitleaks
 
 # ============================================
 # Trivy - Vulnerability scanning
@@ -63,16 +64,25 @@ RUN curl -fsSL https://raw.githubusercontent.com/opengrep/opengrep/main/install.
 # ============================================
 # Slither - Solidity smart contract analysis
 # ============================================
-RUN uv pip install --system slither-analyzer solc-select
+RUN uv tool install slither-analyzer
+RUN uv tool install solc-select
+ENV PATH="/root/.local/bin:$PATH"
 RUN solc-select install latest && solc-select use latest
 
 # ============================================
 # CodeQL - Semantic code analysis
+# Note: CodeQL only provides linux64 (x86_64), skip on ARM64
 # ============================================
-RUN mkdir -p /opt/codeql && \
-    curl -sSL -o /tmp/codeql.zip https://github.com/github/codeql-cli-binaries/releases/latest/download/codeql-linux64.zip && \
-    unzip -q /tmp/codeql.zip -d /opt && \
-    rm /tmp/codeql.zip
+RUN ARCH=$(uname -m) && \
+    if [ "$ARCH" = "x86_64" ]; then \
+        mkdir -p /opt/codeql && \
+        CODEQL_VERSION=$(curl -sL https://api.github.com/repos/github/codeql-action/releases/latest | jq -r '.tag_name') && \
+        curl -sSL -o /tmp/codeql.tar.gz "https://github.com/github/codeql-action/releases/download/${CODEQL_VERSION}/codeql-bundle-linux64.tar.gz" && \
+        tar xzf /tmp/codeql.tar.gz -C /opt && \
+        rm /tmp/codeql.tar.gz; \
+    else \
+        echo "CodeQL not available for $ARCH, skipping"; \
+    fi
 ENV PATH="/opt/codeql:$PATH"
 
 # ============================================
@@ -87,13 +97,17 @@ ENV PATH="/opt/joern/joern-cli:$PATH"
 
 # ============================================
 # Infer - Static analysis (Facebook)
+# Note: Infer only provides linux-x86_64, skip on ARM64
 # ============================================
-# Note: Infer doesn't support /releases/latest/download/ pattern due to version in filename
-# Using specific version to avoid API rate limits
-RUN curl -sSL -o /tmp/infer.tar.xz https://github.com/facebook/infer/releases/download/v1.2.0/infer-linux-x86_64-v1.2.0.tar.xz && \
-    tar xJf /tmp/infer.tar.xz -C /opt && \
-    rm /tmp/infer.tar.xz && \
-    ln -s /opt/infer-*/bin/infer /usr/local/bin/infer
+RUN ARCH=$(uname -m) && \
+    if [ "$ARCH" = "x86_64" ]; then \
+        curl -sSL -o /tmp/infer.tar.xz https://github.com/facebook/infer/releases/download/v1.2.0/infer-linux-x86_64-v1.2.0.tar.xz && \
+        tar xJf /tmp/infer.tar.xz -C /opt && \
+        rm /tmp/infer.tar.xz && \
+        ln -s /opt/infer-*/bin/infer /usr/local/bin/infer; \
+    else \
+        echo "Infer not available for $ARCH, skipping"; \
+    fi
 
 # ============================================
 # Linguist - Language detection
@@ -101,9 +115,17 @@ RUN curl -sSL -o /tmp/infer.tar.xz https://github.com/facebook/infer/releases/do
 RUN gem install github-linguist
 
 # ============================================
-# Tree-sitter - Syntax parsing
+# Exploitation Tools
 # ============================================
-RUN uv pip install --system tree-sitter
+
+# pwntools - CTF framework and exploit development
+RUN uv tool install pwntools
+
+# Ropper - ROP gadget finder
+RUN uv tool install ropper
+
+# one_gadget - Find one-shot RCE gadgets in libc
+RUN gem install one_gadget
 
 # ============================================
 # Cleanup

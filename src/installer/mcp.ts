@@ -4,12 +4,6 @@ import { exec, runWithOutput } from '../utils/shell.js';
 import { logger } from '../utils/logger.js';
 import { getMcpServersDir, getMrZeroDir, getHomeDir } from '../utils/platform.js';
 import { MCP_SERVERS, McpServerConfig } from '../config/mcp-servers.js';
-import {
-  detectPwndbg,
-  detectGhidra,
-  detectMetasploit,
-  detectIdaPro,
-} from './detector.js';
 
 export interface McpInstallResult {
   name: string;
@@ -17,46 +11,6 @@ export interface McpInstallResult {
   skipped: boolean;
   reason?: string;
   postInstallNotes?: string[];
-}
-
-async function checkPrerequisite(serverName: string): Promise<{ met: boolean; reason?: string }> {
-  const server = MCP_SERVERS[serverName];
-  if (!server?.requiresPrerequisite) {
-    return { met: true };
-  }
-
-  switch (server.requiresPrerequisite) {
-    case 'pwndbg': {
-      const status = await detectPwndbg();
-      if (!status.installed) {
-        return { met: false, reason: 'pwndbg is not installed' };
-      }
-      return { met: true };
-    }
-    case 'ghidra': {
-      const status = await detectGhidra();
-      if (!status.installed) {
-        return { met: false, reason: 'Ghidra is not installed' };
-      }
-      return { met: true };
-    }
-    case 'metasploit': {
-      const status = await detectMetasploit();
-      if (!status.installed) {
-        return { met: false, reason: 'Metasploit is not installed' };
-      }
-      return { met: true };
-    }
-    case 'ida-pro': {
-      const status = await detectIdaPro();
-      if (!status.installed) {
-        return { met: false, reason: 'IDA Pro is not installed' };
-      }
-      return { met: true };
-    }
-    default:
-      return { met: true };
-  }
 }
 
 async function installPwndbgMcp(): Promise<McpInstallResult> {
@@ -258,17 +212,8 @@ export async function installMcpServer(serverName: string): Promise<McpInstallRe
     };
   }
 
-  // Check prerequisite
-  const prereq = await checkPrerequisite(serverName);
-  if (!prereq.met) {
-    logger.warning(`Skipping ${server.displayName}: ${prereq.reason}`);
-    return {
-      name: server.name,
-      installed: false,
-      skipped: true,
-      reason: prereq.reason,
-    };
-  }
+  // Note: We no longer check prerequisites here since user explicitly chose to install
+  // The warning about prerequisites is shown during MCP server selection
 
   switch (serverName) {
     case 'pwndbg-mcp':

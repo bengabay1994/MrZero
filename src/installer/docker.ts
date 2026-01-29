@@ -80,7 +80,7 @@ export async function ensureDockerImage(): Promise<boolean> {
   return await buildDockerImage();
 }
 
-export async function createWrapperScript(toolName: string): Promise<boolean> {
+export async function createWrapperScript(toolName: string, wrapperName?: string): Promise<boolean> {
   const tool = DOCKER_TOOLS[toolName];
   if (!tool) {
     logger.error(`Unknown tool: ${toolName}`);
@@ -88,13 +88,14 @@ export async function createWrapperScript(toolName: string): Promise<boolean> {
   }
   
   const wrappersDir = getWrappersDir();
-  const wrapperPath = path.join(wrappersDir, tool.wrapperName || toolName);
+  const actualWrapperName = wrapperName || tool.wrapperName || toolName;
+  const wrapperPath = path.join(wrappersDir, actualWrapperName);
   
   // Ensure wrappers directory exists
   fs.mkdirSync(wrappersDir, { recursive: true });
   
-  // Generate wrapper content
-  let toolCommand = toolName;
+  // Generate wrapper content - use the wrapper name as the command
+  let toolCommand = actualWrapperName;
   
   // Some tools need special handling
   switch (toolName) {
@@ -107,15 +108,12 @@ export async function createWrapperScript(toolName: string): Promise<boolean> {
     case 'linguist':
       toolCommand = 'github-linguist';
       break;
-    case 'tree-sitter':
-      toolCommand = 'python3 -m tree_sitter';
-      break;
     default:
-      toolCommand = toolName;
+      toolCommand = actualWrapperName;
   }
   
   const wrapperContent = WRAPPER_TEMPLATE
-    .replace(/{{TOOL_NAME}}/g, toolName)
+    .replace(/{{TOOL_NAME}}/g, actualWrapperName)
     .replace(/{{TOOL_COMMAND}}/g, toolCommand);
   
   try {
@@ -123,7 +121,7 @@ export async function createWrapperScript(toolName: string): Promise<boolean> {
     logger.success(`Created wrapper: ${wrapperPath}`);
     return true;
   } catch (error) {
-    logger.error(`Failed to create wrapper for ${toolName}: ${error}`);
+    logger.error(`Failed to create wrapper for ${actualWrapperName}: ${error}`);
     return false;
   }
 }
@@ -134,17 +132,28 @@ export async function createAllWrappers(tools: string[]): Promise<void> {
   const wrappersDir = getWrappersDir();
   logger.info(`Wrappers directory: ${wrappersDir}`);
   
-  for (const tool of tools) {
-    await createWrapperScript(tool);
+  for (const toolName of tools) {
+    const tool = DOCKER_TOOLS[toolName];
+    if (!tool) continue;
+    
+    // Handle tools with multiple wrappers (like pwntools)
+    if (tool.wrapperNames && tool.wrapperNames.length > 0) {
+      for (const wrapperName of tool.wrapperNames) {
+        await createWrapperScript(toolName, wrapperName);
+      }
+    } else {
+      await createWrapperScript(toolName);
+    }
   }
   
   // Check if wrappers dir is in PATH
   const pathEnv = process.env.PATH || '';
   if (!pathEnv.includes(wrappersDir)) {
     logger.blank();
-    logger.warning(`${wrappersDir} is not in your PATH`);
-    logger.info(`Add this to your shell config (~/.bashrc or ~/.zshrc):`);
-    logger.info(`  export PATH="$HOME/.local/bin:$PATH"`);
+    logger.info(`Note: Tools installed to ${wrappersDir}`);
+    logger.info(`Use the MrZero launcher to ensure correct PATH:`);
+    logger.info(`  mrzero opencode`);
+    logger.info(`  mrzero claude`);
   }
 }
 
