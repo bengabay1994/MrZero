@@ -103,3 +103,19 @@ export function getDistroInfo(): { name: string; version: string } | null {
   } catch {}
   return null;
 }
+
+export function getArch(): string {
+  return os.arch();
+}
+
+export function isArm64(): boolean {
+  return os.arch() === 'arm64';
+}
+
+export function isX64(): boolean {
+  return os.arch() === 'x64';
+}
+
+export function isLinuxArm64(): boolean {
+  return isLinux() && isArm64();
+}

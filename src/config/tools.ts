@@ -6,6 +6,8 @@ export interface ToolConfig {
   checkCommand?: string;
   installCommand?: string;
   wrapperName?: string;
+  wrapperNames?: string[];  // For tools that provide multiple executables
+  unsupportedOnLinuxArm64?: boolean;  // True if tool doesn't support Linux ARM64
 }
 
 export const DOCKER_TOOLS: Record<string, ToolConfig> = {
@@ -27,9 +29,10 @@ export const DOCKER_TOOLS: Record<string, ToolConfig> = {
   codeql: {
     name: 'codeql',
     displayName: 'CodeQL',
-    description: 'Deep semantic code analysis and taint tracking',
+    description: 'Deep semantic code analysis and taint tracking (not available on Linux ARM64)',
     installMethod: 'docker',
     wrapperName: 'codeql',
+    unsupportedOnLinuxArm64: true,
   },
   joern: {
     name: 'joern',
@@ -41,9 +44,10 @@ export const DOCKER_TOOLS: Record<string, ToolConfig> = {
   infer: {
     name: 'infer',
     displayName: 'Infer',
-    description: 'Static analysis for memory safety issues (x86_64 only)',
+    description: 'Static analysis for memory safety issues (not available on Linux ARM64)',
     installMethod: 'docker',
     wrapperName: 'infer',
+    unsupportedOnLinuxArm64: true,
   },
   bearer: {
     name: 'bearer',
@@ -77,9 +81,13 @@ export const DOCKER_TOOLS: Record<string, ToolConfig> = {
   pwntools: {
     name: 'pwntools',
     displayName: 'pwntools',
-    description: 'CTF framework and exploit development library',
+    description: 'CTF framework and exploit development library (19 tools)',
     installMethod: 'docker',
-    wrapperName: 'pwn',
+    wrapperNames: [
+      'asm', 'checksec', 'constgrep', 'cyclic', 'debug', 'disablenx',
+      'disasm', 'elfdiff', 'elfpatch', 'errno', 'hex', 'libcdb',
+      'phd', 'pwn', 'pwnstrip', 'scramble', 'shellcraft', 'template', 'unhex'
+    ],
   },
   ropper: {
     name: 'ropper',

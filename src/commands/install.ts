@@ -2,7 +2,7 @@ import * as fs from 'fs';
 import enquirer from 'enquirer';
 import ora from 'ora';
 import { logger, formatStatus, formatOptional } from '../utils/logger.js';
-import { isLinux } from '../utils/platform.js';
+import { isLinux, isLinuxArm64 } from '../utils/platform.js';
 import {
   detectSystemInfo,
   detectGdb,
@@ -205,7 +205,20 @@ async function selectTools(
   skipDocker: boolean
 ): Promise<string[]> {
   // All tools are now Docker-based
-  const allTools = Object.values(DOCKER_TOOLS);
+  let allTools = Object.values(DOCKER_TOOLS);
+
+  // Filter out tools not supported on Linux ARM64
+  const isArm64Linux = isLinuxArm64();
+  if (isArm64Linux) {
+    const unsupportedTools = allTools.filter(t => t.unsupportedOnLinuxArm64).map(t => t.name);
+    if (unsupportedTools.length > 0) {
+      logger.blank();
+      logger.warning(`The following tools are not available on Linux ARM64: ${unsupportedTools.join(', ')}`);
+    }
+    allTools = allTools.filter(t => !t.unsupportedOnLinuxArm64);
+    // Also filter recommended tools
+    recommendedTools = recommendedTools.filter(t => !DOCKER_TOOLS[t]?.unsupportedOnLinuxArm64);
+  }
 
   if (skipDocker || allTools.length === 0) {
     return [];
