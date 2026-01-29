@@ -18,11 +18,37 @@ if ! docker info > /dev/null 2>&1; then
 fi
 
 # Run the tool in container with current directory mounted
-docker run --rm -it \\
+# Note: We don't use -t (TTY) as these tools are run non-interactively by AI agents
+# Note: --entrypoint "" overrides any ENTRYPOINT in the image for direct command execution
+docker run --rm \\
+    --entrypoint "" \\
     -v "$(pwd)":/workspace \\
     -w /workspace \\
     "$MRZERO_IMAGE" \\
-    "{{TOOL_COMMAND}} $*"
+    {{TOOL_COMMAND}} "$@"
+`;
+
+// Special wrapper for linguist which needs git safe.directory config
+const LINGUIST_WRAPPER_TEMPLATE = `#!/bin/bash
+# MrZero wrapper for linguist
+# Transparently runs github-linguist in Docker container
+
+MRZERO_IMAGE="${DOCKER_IMAGE}"
+
+# Check if Docker is running
+if ! docker info > /dev/null 2>&1; then
+    echo "Error: Docker is not running. Please start Docker first." >&2
+    exit 1
+fi
+
+# Run linguist in container with current directory mounted
+# Note: We configure git safe.directory to allow linguist to analyze mounted repos
+docker run --rm \\
+    --entrypoint "" \\
+    -v "$(pwd)":/workspace \\
+    -w /workspace \\
+    "$MRZERO_IMAGE" \\
+    bash -c 'git config --global --add safe.directory /workspace 2>/dev/null; github-linguist "$@"' _ "$@"
 `;
 
 export async function pullDockerImage(): Promise<boolean> {
@@ -94,27 +120,31 @@ export async function createWrapperScript(toolName: string): Promise<boolean> {
   // Ensure wrappers directory exists
   fs.mkdirSync(wrappersDir, { recursive: true });
   
-  // Generate wrapper content
-  let toolCommand = wrapperName;
+  let wrapperContent: string;
   
-  // Some tools need special handling
-  switch (toolName) {
-    case 'joern':
-      toolCommand = 'joern';
-      break;
-    case 'codeql':
-      toolCommand = 'codeql';
-      break;
-    case 'linguist':
-      toolCommand = 'github-linguist';
-      break;
-    default:
-      toolCommand = wrapperName;
+  // Linguist needs special handling for git safe.directory
+  if (toolName === 'linguist') {
+    wrapperContent = LINGUIST_WRAPPER_TEMPLATE;
+  } else {
+    // Generate wrapper content for other tools
+    let toolCommand = wrapperName;
+    
+    // Some tools need special command names
+    switch (toolName) {
+      case 'joern':
+        toolCommand = 'joern';
+        break;
+      case 'codeql':
+        toolCommand = 'codeql';
+        break;
+      default:
+        toolCommand = wrapperName;
+    }
+    
+    wrapperContent = WRAPPER_TEMPLATE
+      .replace(/{{TOOL_NAME}}/g, wrapperName)
+      .replace(/{{TOOL_COMMAND}}/g, toolCommand);
   }
-  
-  const wrapperContent = WRAPPER_TEMPLATE
-    .replace(/{{TOOL_NAME}}/g, wrapperName)
-    .replace(/{{TOOL_COMMAND}}/g, toolCommand);
   
   try {
     fs.writeFileSync(wrapperPath, wrapperContent, { mode: 0o755 });

@@ -132,9 +132,12 @@ RUN gem install one_gadget
 # ============================================
 RUN apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
+# Configure git to trust mounted workspaces (needed for linguist)
+RUN git config --global --add safe.directory '*'
+
 # Set working directory for scanning
 WORKDIR /workspace
 
-# Default entrypoint - can be overridden
-ENTRYPOINT ["/bin/bash", "-c"]
-CMD ["echo 'MrZero Tools Container - use specific tool commands'"]
+# No entrypoint - commands are passed directly
+# This allows: docker run image gitleaks --help
+CMD ["/bin/bash"]
