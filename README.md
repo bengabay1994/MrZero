@@ -96,7 +96,13 @@ To use a different password, update the `MSF_PASSWORD` environment variable in y
 
 ### With Claude Code
 
-After installation, restart Claude Code. The agents are available globally.
+Launch Claude Code through MrZero to enable the security tools:
+
+```bash
+mrzero claude
+```
+
+The agents are available globally and can use all MrZero tools.
 
 **Switch agents:** Press `Tab` to cycle through available agents
 
@@ -107,7 +113,13 @@ After installation, restart Claude Code. The agents are available globally.
 
 ### With OpenCode
 
-After installation, restart OpenCode. The agents are configured automatically.
+Launch OpenCode through MrZero to enable the security tools:
+
+```bash
+mrzero opencode
+```
+
+The agents are configured automatically and can use all MrZero tools.
 
 **Switch agents:** Press `Tab` to cycle through agents
 
@@ -115,6 +127,11 @@ After installation, restart OpenCode. The agents are configured automatically.
 ```
 @MrZeroVulnHunterOS find vulnerabilities in this codebase
 ```
+
+> **Note:** When using OpenCode's interactive bash mode (the `!` prefix), the MrZero tools
+> may not be visible in your PATH. However, the AI agents have full access to all tools
+> when they execute bash commands. If you need to run a tool manually in bash mode,
+> use the full path: `~/.local/bin/mrzero-tools/<tool-name>`
 
 ## Verify Installation
 
