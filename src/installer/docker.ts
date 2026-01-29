@@ -80,7 +80,7 @@ export async function ensureDockerImage(): Promise<boolean> {
   return await buildDockerImage();
 }
 
-export async function createWrapperScript(toolName: string, wrapperName?: string): Promise<boolean> {
+export async function createWrapperScript(toolName: string): Promise<boolean> {
   const tool = DOCKER_TOOLS[toolName];
   if (!tool) {
     logger.error(`Unknown tool: ${toolName}`);
@@ -88,14 +88,14 @@ export async function createWrapperScript(toolName: string, wrapperName?: string
   }
   
   const wrappersDir = getWrappersDir();
-  const actualWrapperName = wrapperName || tool.wrapperName || toolName;
-  const wrapperPath = path.join(wrappersDir, actualWrapperName);
+  const wrapperName = tool.wrapperName || toolName;
+  const wrapperPath = path.join(wrappersDir, wrapperName);
   
   // Ensure wrappers directory exists
   fs.mkdirSync(wrappersDir, { recursive: true });
   
-  // Generate wrapper content - use the wrapper name as the command
-  let toolCommand = actualWrapperName;
+  // Generate wrapper content
+  let toolCommand = wrapperName;
   
   // Some tools need special handling
   switch (toolName) {
@@ -109,11 +109,11 @@ export async function createWrapperScript(toolName: string, wrapperName?: string
       toolCommand = 'github-linguist';
       break;
     default:
-      toolCommand = actualWrapperName;
+      toolCommand = wrapperName;
   }
   
   const wrapperContent = WRAPPER_TEMPLATE
-    .replace(/{{TOOL_NAME}}/g, actualWrapperName)
+    .replace(/{{TOOL_NAME}}/g, wrapperName)
     .replace(/{{TOOL_COMMAND}}/g, toolCommand);
   
   try {
@@ -121,7 +121,7 @@ export async function createWrapperScript(toolName: string, wrapperName?: string
     logger.success(`Created wrapper: ${wrapperPath}`);
     return true;
   } catch (error) {
-    logger.error(`Failed to create wrapper for ${actualWrapperName}: ${error}`);
+    logger.error(`Failed to create wrapper for ${wrapperName}: ${error}`);
     return false;
   }
 }
@@ -133,17 +133,7 @@ export async function createAllWrappers(tools: string[]): Promise<void> {
   logger.info(`Wrappers directory: ${wrappersDir}`);
   
   for (const toolName of tools) {
-    const tool = DOCKER_TOOLS[toolName];
-    if (!tool) continue;
-    
-    // Handle tools with multiple wrappers (like pwntools)
-    if (tool.wrapperNames && tool.wrapperNames.length > 0) {
-      for (const wrapperName of tool.wrapperNames) {
-        await createWrapperScript(toolName, wrapperName);
-      }
-    } else {
-      await createWrapperScript(toolName);
-    }
+    await createWrapperScript(toolName);
   }
   
   // Check if wrappers dir is in PATH

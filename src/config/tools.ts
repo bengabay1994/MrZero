@@ -6,7 +6,6 @@ export interface ToolConfig {
   checkCommand?: string;
   installCommand?: string;
   wrapperName?: string;
-  wrapperNames?: string[];  // For tools that provide multiple executables
   unsupportedOnLinuxArm64?: boolean;  // True if tool doesn't support Linux ARM64
 }
 
@@ -81,13 +80,9 @@ export const DOCKER_TOOLS: Record<string, ToolConfig> = {
   pwntools: {
     name: 'pwntools',
     displayName: 'pwntools',
-    description: 'CTF framework and exploit development library (19 tools)',
+    description: 'CTF framework and exploit development library',
     installMethod: 'docker',
-    wrapperNames: [
-      'asm', 'checksec', 'constgrep', 'cyclic', 'debug', 'disablenx',
-      'disasm', 'elfdiff', 'elfpatch', 'errno', 'hex', 'libcdb',
-      'phd', 'pwn', 'pwnstrip', 'scramble', 'shellcraft', 'template', 'unhex'
-    ],
+    wrapperName: 'pwn',
   },
   ropper: {
     name: 'ropper',
