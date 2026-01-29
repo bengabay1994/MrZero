@@ -71,14 +71,18 @@ RUN solc-select install latest && solc-select use latest
 
 # ============================================
 # CodeQL - Semantic code analysis
-# Download from codeql-action releases (includes ARM64 support)
+# Note: CodeQL only provides linux64 (x86_64), skip on ARM64
 # ============================================
-RUN mkdir -p /opt/codeql && \
-    ARCH=$(uname -m | sed 's/x86_64/linux64/;s/aarch64/linuxarm64/') && \
-    CODEQL_VERSION=$(curl -sL https://api.github.com/repos/github/codeql-action/releases/latest | jq -r '.tag_name') && \
-    curl -sSL -o /tmp/codeql.tar.gz "https://github.com/github/codeql-action/releases/download/${CODEQL_VERSION}/codeql-bundle-${ARCH}.tar.gz" && \
-    tar xzf /tmp/codeql.tar.gz -C /opt && \
-    rm /tmp/codeql.tar.gz
+RUN ARCH=$(uname -m) && \
+    if [ "$ARCH" = "x86_64" ]; then \
+        mkdir -p /opt/codeql && \
+        CODEQL_VERSION=$(curl -sL https://api.github.com/repos/github/codeql-action/releases/latest | jq -r '.tag_name') && \
+        curl -sSL -o /tmp/codeql.tar.gz "https://github.com/github/codeql-action/releases/download/${CODEQL_VERSION}/codeql-bundle-linux64.tar.gz" && \
+        tar xzf /tmp/codeql.tar.gz -C /opt && \
+        rm /tmp/codeql.tar.gz; \
+    else \
+        echo "CodeQL not available for $ARCH, skipping"; \
+    fi
 ENV PATH="/opt/codeql:$PATH"
 
 # ============================================
