@@ -20,8 +20,12 @@ fi
 # Run the tool in container with current directory mounted
 # Note: We don't use -t (TTY) as these tools are run non-interactively by AI agents
 # Note: --entrypoint "" overrides any ENTRYPOINT in the image for direct command execution
+# Note: --network host uses host networking for proper DNS resolution and internet access
+# Note: PYTHONIOENCODING=utf-8 fixes encoding issues with some Python-based tools
 docker run --rm \\
+    --network host \\
     --entrypoint "" \\
+    -e PYTHONIOENCODING=utf-8 \\
     -v "$(pwd)":/workspace \\
     -w /workspace \\
     "$MRZERO_IMAGE" \\
@@ -43,8 +47,11 @@ fi
 
 # Run linguist in container with current directory mounted
 # Note: We configure git safe.directory to allow linguist to analyze mounted repos
+# Note: --network host uses host networking for proper DNS resolution
 docker run --rm \\
+    --network host \\
     --entrypoint "" \\
+    -e PYTHONIOENCODING=utf-8 \\
     -v "$(pwd)":/workspace \\
     -w /workspace \\
     "$MRZERO_IMAGE" \\

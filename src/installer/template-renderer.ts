@@ -177,19 +177,56 @@ function removeEmptySections(originalContent: string, renderedContent: string): 
 }
 
 /**
- * Clean up excessive blank lines (more than 2 consecutive blank lines -> 2)
+ * Clean up excessive blank lines and empty placeholder lines
  */
 function cleanupWhitespace(content: string): string {
-  // Replace 3+ consecutive newlines with 2 newlines
-  let result = content.replace(/\n{3,}/g, '\n\n');
+  // Split into lines for processing
+  const lines = content.split('\n');
+  const result: string[] = [];
   
-  // Remove trailing whitespace from lines
-  result = result.split('\n').map(line => line.trimEnd()).join('\n');
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const trimmedLine = line.trim();
+    
+    // If line has content, keep it (with trailing whitespace removed)
+    if (trimmedLine.length > 0) {
+      result.push(line.trimEnd());
+      continue;
+    }
+    
+    // Line is empty/whitespace - decide if we should keep it
+    
+    // Don't add empty line if the previous result line is also empty
+    // (this collapses multiple consecutive empty lines into one)
+    if (result.length > 0 && result[result.length - 1].trim().length === 0) {
+      continue;
+    }
+    
+    // Check if we're inside a list context (previous line starts with list marker)
+    // and next non-empty line also starts with list marker
+    // If so, skip this empty line as it breaks the list
+    const prevLine = result.length > 0 ? result[result.length - 1] : '';
+    const nextNonEmptyLine = lines.slice(i + 1).find(l => l.trim().length > 0) || '';
+    
+    const listPatterns = [/^\s*-\s/, /^\s*\d+\.\s/, /^\s*\*\s/]; // -, 1., *
+    const prevIsList = listPatterns.some(p => p.test(prevLine));
+    const nextIsList = listPatterns.some(p => p.test(nextNonEmptyLine));
+    
+    // If both prev and next are list items, skip this empty line
+    if (prevIsList && nextIsList) {
+      continue;
+    }
+    
+    // Keep single empty lines for paragraph separation
+    result.push('');
+  }
   
   // Ensure file ends with single newline
-  result = result.trimEnd() + '\n';
+  while (result.length > 0 && result[result.length - 1] === '') {
+    result.pop();
+  }
   
-  return result;
+  return result.join('\n') + '\n';
 }
 
 /**

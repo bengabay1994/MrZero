@@ -21,10 +21,12 @@ function downloadFile(url: string, dest: string): Promise<void> {
 
       const protocol = currentUrl.startsWith('https') ? https : require('http');
       
-      protocol.get(currentUrl, (response: any) => {
+      const req = protocol.get(currentUrl, (response: any) => {
         // Handle redirects
         if (response.statusCode === 302 || response.statusCode === 301) {
           const redirectUrl = response.headers.location;
+          // Consume and discard the response body to free up the socket
+          response.resume();
           if (redirectUrl) {
             request(redirectUrl, redirectCount + 1);
             return;
@@ -32,6 +34,7 @@ function downloadFile(url: string, dest: string): Promise<void> {
         }
 
         if (response.statusCode !== 200) {
+          response.resume(); // Consume response to free socket
           fs.unlink(dest, () => {});
           reject(new Error(`HTTP ${response.statusCode}: Failed to download`));
           return;
@@ -46,7 +49,9 @@ function downloadFile(url: string, dest: string): Promise<void> {
           fs.unlink(dest, () => {});
           reject(err);
         });
-      }).on('error', (err: Error) => {
+      });
+      
+      req.on('error', (err: Error) => {
         fs.unlink(dest, () => {});
         reject(err);
       });
