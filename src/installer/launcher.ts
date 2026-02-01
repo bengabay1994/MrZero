@@ -39,10 +39,10 @@ function downloadFile(url: string, dest: string): Promise<void> {
 
         response.pipe(file);
         file.on('finish', () => {
-          file.close();
-          resolve();
+          file.close(() => resolve());
         });
         file.on('error', (err: Error) => {
+          file.close();
           fs.unlink(dest, () => {});
           reject(err);
         });
