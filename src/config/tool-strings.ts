@@ -26,9 +26,9 @@ export const TOOL_STRINGS: Record<string, AgentToolStrings> = {
   // ============================================================================
   MrZeroMapperOS: {
     opengrep: {
-      TOOL_LIST_OPENGREP: '   - **opengrep**: Pattern-based code analysis for vulnerability detection',
-      TOOL_USAGE_OPENGREP: '- Execute opengrep with security rulesets for the detected languages',
-      TOOL_RESULTS_OPENGREP: `### opengrep
+      TOOL_LIST_OPENGREP: '   - **opengrep** (semgrep-compatible): Pattern-based code analysis for identifying input handling patterns. Use `opengrep` command, NOT semgrep',
+      TOOL_USAGE_OPENGREP: '- Execute opengrep (NOT semgrep) with security rulesets for the detected languages',
+      TOOL_RESULTS_OPENGREP: `### opengrep (semgrep-compatible scanner)
 [Summary of pattern-based findings]`,
     },
     gitleaks: {
@@ -65,7 +65,7 @@ export const TOOL_STRINGS: Record<string, AgentToolStrings> = {
   // ============================================================================
   MrZeroVulnHunterOS: {
     opengrep: {
-      TOOL_DESC_OPENGREP: `**Opengrep**: Use for pattern-based detection of common vulnerability patterns across multiple languages. Excellent for finding injection flaws, authentication issues, and cryptographic mistakes.`,
+      TOOL_DESC_OPENGREP: `**opengrep** (semgrep-compatible, use \`opengrep\` command NOT semgrep): Use for pattern-based detection of common vulnerability patterns across multiple languages. Supports semgrep rule syntax. Excellent for finding injection flaws, authentication issues, and cryptographic mistakes.`,
     },
     codeql: {
       TOOL_DESC_CODEQL: `**CodeQL**: Deploy for deep semantic analysis and data flow tracking. Use to trace attacker-controlled input through the codebase to sensitive sinks.`,
