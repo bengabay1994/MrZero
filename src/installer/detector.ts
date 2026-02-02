@@ -366,9 +366,9 @@ export async function detectDockerImage(imageName: string): Promise<boolean> {
   return result.code === 0;
 }
 
-// Check if CLI wrapper exists in ~/.local/bin
+// Check if CLI wrapper exists in ~/.local/bin/mrzero-tools
 export async function detectWrapper(wrapperName: string): Promise<boolean> {
-  const wrapperPath = path.join(getHomeDir(), '.local', 'bin', wrapperName);
+  const wrapperPath = path.join(getHomeDir(), '.local', 'bin', 'mrzero-tools', wrapperName);
   if (!fs.existsSync(wrapperPath)) {
     return false;
   }
