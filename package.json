@@ -1,7 +1,8 @@
 {
   "name": "@bengabay94/mrzero",
-  "version": "0.2.2-alpha.1",
+  "version": "0.3.0-alpha.1",
   "description": "AI-powered security research agents for vulnerability hunting and exploit development",
+  "type": "module",
   "main": "dist/index.js",
   "bin": {
     "mrzero": "dist/index.js"

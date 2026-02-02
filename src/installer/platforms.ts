@@ -1,5 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
+import { fileURLToPath } from 'url';
 import { logger } from '../utils/logger.js';
 import {
   getClaudeConfigDir,
@@ -12,6 +13,10 @@ import {
 import { MCP_SERVERS } from '../config/mcp-servers.js';
 import { AGENTS } from '../config/agents.js';
 import { renderAgentTemplate, agentHasTemplate, RenderContext } from './template-renderer.js';
+
+// ESM doesn't have __dirname, so we create it
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 export type Platform = 'claude-code' | 'opencode';
 

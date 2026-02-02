@@ -2,7 +2,7 @@ import * as fs from 'fs';
 import enquirer from 'enquirer';
 import ora from 'ora';
 import { logger, formatStatus, formatOptional } from '../utils/logger.js';
-import { isLinux, isLinuxArm64 } from '../utils/platform.js';
+import { isLinux, isLinuxArm64, isMac } from '../utils/platform.js';
 import {
   detectSystemInfo,
   detectGdb,
@@ -330,9 +330,9 @@ export async function installCommand(options: InstallOptions): Promise<void> {
   console.log('');
 
   // Check platform
-  if (!isLinux()) {
-    logger.warning('MrZero currently only supports Linux.');
-    logger.info('macOS and Windows support coming soon!');
+  if (!isLinux() && !isMac()) {
+    logger.warning('MrZero currently only supports Linux and macOS.');
+    logger.info('Windows support coming soon!');
     process.exit(1);
   }
 
@@ -393,7 +393,12 @@ export async function installCommand(options: InstallOptions): Promise<void> {
     if (imageReady) {
       await createAllWrappers(selectedTools);
     } else {
-      logger.error('Failed to setup Docker image. Tools will not be available.');
+      logger.blank();
+      logger.error('Failed to setup Docker image.');
+      logger.error('Please ensure Docker is running and try again.');
+      logger.info('  On macOS: Open Docker Desktop');
+      logger.info('  On Linux: sudo systemctl start docker');
+      process.exit(1);
     }
   }
 

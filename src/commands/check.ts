@@ -2,6 +2,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import chalk from 'chalk';
 import { logger, formatStatus, formatOptional } from '../utils/logger.js';
+import { isLinuxArm64 } from '../utils/platform.js';
 import {
   detectSystemInfo,
   detectGdb,
@@ -68,7 +69,20 @@ export async function checkCommand(options: CheckOptions): Promise<void> {
   logger.blank();
   logger.subheader('Security Scanning Tools:');
   const toolStatus: [string, string][] = [];
+  const isArm64Linux = isLinuxArm64();
+  
   for (const toolName of Object.keys(DOCKER_TOOLS)) {
+    const tool = DOCKER_TOOLS[toolName];
+    
+    // Check if tool is unsupported on this platform
+    if (isArm64Linux && tool.unsupportedOnLinuxArm64) {
+      toolStatus.push([
+        toolName,
+        chalk.dim('○ not supported on Linux ARM64'),
+      ]);
+      continue;
+    }
+    
     const status = await detectDockerTool(toolName);
     toolStatus.push([
       toolName,

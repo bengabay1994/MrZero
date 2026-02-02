@@ -1,6 +1,11 @@
 import * as os from 'os';
 import * as path from 'path';
 import * as fs from 'fs';
+import { fileURLToPath } from 'url';
+
+// ESM doesn't have __dirname, so we create it
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 export type Platform = 'linux' | 'darwin' | 'win32' | 'unsupported';
 
@@ -90,7 +95,6 @@ export function getDistroInfo(): { name: string; version: string } | null {
   if (!isLinux()) return null;
   
   try {
-    const fs = require('fs');
     const releaseFile = '/etc/os-release';
     if (fs.existsSync(releaseFile)) {
       const content = fs.readFileSync(releaseFile, 'utf-8');

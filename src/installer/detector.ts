@@ -366,9 +366,9 @@ export async function detectDockerImage(imageName: string): Promise<boolean> {
   return result.code === 0;
 }
 
-// Check if CLI wrapper exists in ~/.local/bin
+// Check if CLI wrapper exists in ~/.local/bin/mrzero-tools
 export async function detectWrapper(wrapperName: string): Promise<boolean> {
-  const wrapperPath = path.join(getHomeDir(), '.local', 'bin', wrapperName);
+  const wrapperPath = path.join(getHomeDir(), '.local', 'bin', 'mrzero-tools', wrapperName);
   if (!fs.existsSync(wrapperPath)) {
     return false;
   }
@@ -414,8 +414,13 @@ export interface DockerToolStatus {
 }
 
 export async function detectDockerTool(toolName: string): Promise<DockerToolStatus> {
-  const wrapperInstalled = await detectWrapper(toolName);
-  const nativeStatus = await detectNativeTool(toolName);
+  // Import tool config to get the correct wrapper name
+  const { DOCKER_TOOLS } = await import('../config/tools.js');
+  const tool = DOCKER_TOOLS[toolName];
+  const wrapperName = tool?.wrapperName || toolName;
+  
+  const wrapperInstalled = await detectWrapper(wrapperName);
+  const nativeStatus = await detectNativeTool(wrapperName);
   
   return {
     name: toolName,

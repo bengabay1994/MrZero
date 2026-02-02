@@ -1,9 +1,14 @@
 import * as fs from 'fs';
 import * as path from 'path';
+import { fileURLToPath } from 'url';
 import { exec, runWithOutput } from '../utils/shell.js';
 import { logger } from '../utils/logger.js';
 import { getHomeDir, getMrZeroDir, getWrappersDir } from '../utils/platform.js';
 import { DOCKER_IMAGE, DOCKER_TOOLS } from '../config/tools.js';
+
+// ESM doesn't have __dirname, so we create it
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const WRAPPER_TEMPLATE = `#!/bin/bash
 # MrZero wrapper for {{TOOL_NAME}}
@@ -58,7 +63,21 @@ docker run --rm \\
     bash -c 'git config --global --add safe.directory /workspace 2>/dev/null; github-linguist "$@"' _ "$@"
 `;
 
+/**
+ * Check if Docker daemon is running
+ */
+export async function isDockerRunning(): Promise<boolean> {
+  const result = await exec('docker info');
+  return result.code === 0;
+}
+
 export async function pullDockerImage(): Promise<boolean> {
+  // First check if Docker daemon is running
+  if (!await isDockerRunning()) {
+    logger.error('Docker daemon is not running.');
+    return false;
+  }
+
   logger.step(`Pulling Docker image: ${DOCKER_IMAGE}`);
   
   const code = await runWithOutput('docker', ['pull', DOCKER_IMAGE]);
