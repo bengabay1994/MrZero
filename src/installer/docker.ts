@@ -1,9 +1,14 @@
 import * as fs from 'fs';
 import * as path from 'path';
+import { fileURLToPath } from 'url';
 import { exec, runWithOutput } from '../utils/shell.js';
 import { logger } from '../utils/logger.js';
 import { getHomeDir, getMrZeroDir, getWrappersDir } from '../utils/platform.js';
 import { DOCKER_IMAGE, DOCKER_TOOLS } from '../config/tools.js';
+
+// ESM doesn't have __dirname, so we create it
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const WRAPPER_TEMPLATE = `#!/bin/bash
 # MrZero wrapper for {{TOOL_NAME}}
