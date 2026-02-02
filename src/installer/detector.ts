@@ -414,8 +414,13 @@ export interface DockerToolStatus {
 }
 
 export async function detectDockerTool(toolName: string): Promise<DockerToolStatus> {
-  const wrapperInstalled = await detectWrapper(toolName);
-  const nativeStatus = await detectNativeTool(toolName);
+  // Import tool config to get the correct wrapper name
+  const { DOCKER_TOOLS } = await import('../config/tools.js');
+  const tool = DOCKER_TOOLS[toolName];
+  const wrapperName = tool?.wrapperName || toolName;
+  
+  const wrapperInstalled = await detectWrapper(wrapperName);
+  const nativeStatus = await detectNativeTool(wrapperName);
   
   return {
     name: toolName,
