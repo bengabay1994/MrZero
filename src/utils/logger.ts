@@ -44,3 +44,55 @@ export function formatStatus(installed: boolean): string {
 export function formatOptional(installed: boolean): string {
   return installed ? chalk.green('✓ installed') : chalk.dim('○ not installed (optional)');
 }
+
+/**
+ * Simple spinner implementation that's CommonJS-compatible.
+ * Replaces ora to avoid ESM-only dependency issues on macOS.
+ */
+export class Spinner {
+  private frames = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
+  private frameIndex = 0;
+  private intervalId: ReturnType<typeof setInterval> | null = null;
+  private message: string;
+
+  constructor(message: string) {
+    this.message = message;
+  }
+
+  start(): this {
+    // Hide cursor
+    process.stdout.write('\x1B[?25l');
+    
+    this.intervalId = setInterval(() => {
+      const frame = chalk.cyan(this.frames[this.frameIndex]);
+      process.stdout.write(`\r${frame} ${this.message}`);
+      this.frameIndex = (this.frameIndex + 1) % this.frames.length;
+    }, 80);
+    
+    return this;
+  }
+
+  stop(): void {
+    if (this.intervalId) {
+      clearInterval(this.intervalId);
+      this.intervalId = null;
+    }
+    // Clear the line and show cursor
+    process.stdout.write('\r\x1B[K');
+    process.stdout.write('\x1B[?25h');
+  }
+
+  succeed(message?: string): void {
+    this.stop();
+    console.log(chalk.green('✓') + ' ' + (message || this.message));
+  }
+
+  fail(message?: string): void {
+    this.stop();
+    console.log(chalk.red('✗') + ' ' + (message || this.message));
+  }
+}
+
+export function createSpinner(message: string): Spinner {
+  return new Spinner(message);
+}
