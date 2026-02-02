@@ -63,7 +63,21 @@ docker run --rm \\
     bash -c 'git config --global --add safe.directory /workspace 2>/dev/null; github-linguist "$@"' _ "$@"
 `;
 
+/**
+ * Check if Docker daemon is running
+ */
+export async function isDockerRunning(): Promise<boolean> {
+  const result = await exec('docker info');
+  return result.code === 0;
+}
+
 export async function pullDockerImage(): Promise<boolean> {
+  // First check if Docker daemon is running
+  if (!await isDockerRunning()) {
+    logger.error('Docker daemon is not running.');
+    return false;
+  }
+
   logger.step(`Pulling Docker image: ${DOCKER_IMAGE}`);
   
   const code = await runWithOutput('docker', ['pull', DOCKER_IMAGE]);

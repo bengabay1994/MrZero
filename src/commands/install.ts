@@ -393,7 +393,12 @@ export async function installCommand(options: InstallOptions): Promise<void> {
     if (imageReady) {
       await createAllWrappers(selectedTools);
     } else {
-      logger.error('Failed to setup Docker image. Tools will not be available.');
+      logger.blank();
+      logger.error('Failed to setup Docker image.');
+      logger.error('Please ensure Docker is running and try again.');
+      logger.info('  On macOS: Open Docker Desktop');
+      logger.info('  On Linux: sudo systemctl start docker');
+      process.exit(1);
     }
   }
 
