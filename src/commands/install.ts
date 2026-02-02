@@ -1,6 +1,7 @@
 import * as fs from 'fs';
 import enquirer from 'enquirer';
-import { logger, formatStatus, formatOptional, createSpinner } from '../utils/logger.js';
+import ora from 'ora';
+import { logger, formatStatus, formatOptional } from '../utils/logger.js';
 import { isLinux, isLinuxArm64, isMac } from '../utils/platform.js';
 import {
   detectSystemInfo,
@@ -37,7 +38,7 @@ interface InstallOptions {
 }
 
 async function showSystemInfo(): Promise<SystemInfo> {
-  const spinner = createSpinner('Detecting system configuration...').start();
+  const spinner = ora('Detecting system configuration...').start();
   
   const [systemInfo, gdb, pwndbg, ghidra, metasploit, idaPro] = await Promise.all([
     detectSystemInfo(),
