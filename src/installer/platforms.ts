@@ -22,15 +22,19 @@ export type Platform = 'claude-code' | 'opencode';
 
 // Claude Code MCP config format
 interface ClaudeMcpServerConfig {
-  command: string;
+  command?: string;
   args?: string[];
   env?: Record<string, string>;
+  // SSE server config
+  url?: string;
+  transport?: string;
 }
 
 // OpenCode MCP config format
 interface OpenCodeMcpServerConfig {
-  type: 'local';
-  command: string[];
+  type: 'local' | 'remote';
+  command?: string[];
+  url?: string;
   enabled: boolean;
   environment?: Record<string, string>;
 }
@@ -73,6 +77,14 @@ function buildClaudeMcpConfig(serverName: string): ClaudeMcpServerConfig | null 
   const server = MCP_SERVERS[serverName];
   if (!server) return null;
 
+  // SSE/external servers use URL-based config
+  if (server.installMethod === 'external' && server.sseUrl) {
+    return {
+      url: server.sseUrl,
+      transport: 'sse',
+    };
+  }
+
   const config: ClaudeMcpServerConfig = {
     command: server.command,
   };
@@ -91,6 +103,15 @@ function buildClaudeMcpConfig(serverName: string): ClaudeMcpServerConfig | null 
 function buildOpenCodeMcpConfig(serverName: string): OpenCodeMcpServerConfig | null {
   const server = MCP_SERVERS[serverName];
   if (!server) return null;
+
+  // SSE/external servers use URL-based config
+  if (server.installMethod === 'external' && server.sseUrl) {
+    return {
+      type: 'remote',
+      url: server.sseUrl,
+      enabled: true,
+    };
+  }
 
   // Build the command array
   const commandArray: string[] = [server.command];

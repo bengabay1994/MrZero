@@ -3,12 +3,14 @@ export interface McpServerConfig {
   displayName: string;
   description: string;
   repo: string;
-  installMethod: 'uv-tool' | 'uv-pip' | 'clone';
+  installMethod: 'uv-tool' | 'uv-pip' | 'clone' | 'external';
   requiresPrerequisite?: string;
   command: string;
   args?: string[];
   env?: Record<string, string>;
   postInstallNotes?: string[];
+  // For external/SSE MCP servers (user-managed, not installed by us)
+  sseUrl?: string;  // SSE endpoint URL (e.g., http://127.0.0.1:9876/sse)
 }
 
 export const MCP_SERVERS: Record<string, McpServerConfig> = {
@@ -68,6 +70,26 @@ export const MCP_SERVERS: Record<string, McpServerConfig> = {
     postInstallNotes: [
       'After installation, run: ida-pro-mcp --install',
       'This will configure the IDA Pro plugin automatically.',
+    ],
+  },
+  'burpsuite-mcp': {
+    name: 'burpsuite-mcp',
+    displayName: 'Burp Suite MCP',
+    description: 'Burp Suite integration for web security testing',
+    repo: 'https://github.com/PortSwigger/mcp-server',
+    installMethod: 'external',
+    requiresPrerequisite: 'burp-suite',
+    command: '',  // Not used - SSE server managed by Burp Suite
+    sseUrl: 'http://127.0.0.1:9876/sse',
+    postInstallNotes: [
+      'Burp Suite MCP server is NOT installed by MrZero.',
+      'You must install it manually in Burp Suite:',
+      '1. Open Burp Suite (Community or Professional edition)',
+      '2. Go to the Extensions tab',
+      '3. Click BApp Store',
+      '4. Search for "MCP Server" and install it',
+      '5. Configure the MCP server in the MCP tab (default: http://127.0.0.1:9876)',
+      '6. Ensure Burp Suite is running when using MrZero agents that need it',
     ],
   },
 };

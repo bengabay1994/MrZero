@@ -129,6 +129,24 @@ p = gdb.debug('./vulnerable', '''
     'ida-pro-mcp': {
       TOOL_LIST_IDA: '- **IDA Pro**: Advanced disassembler for static analysis and reverse engineering',
     },
+    'burpsuite-mcp': {
+      TOOL_LIST_BURPSUITE: '- **Burp Suite** (via MCP): Web security testing proxy for intercepting, analyzing, and modifying HTTP/HTTPS traffic. Use the Burp Suite MCP server tools to interact with Burp Suite for web application testing - scan for vulnerabilities, inspect requests/responses, manage the sitemap, and control the proxy.',
+      TOOL_USAGE_BURPSUITE: `### Burp Suite Integration (Web Application Exploitation)
+When exploiting web application vulnerabilities, use the Burp Suite MCP server to:
+- Intercept and modify HTTP requests in real-time
+- Analyze application responses for vulnerability indicators
+- Use the scanner to identify additional attack vectors
+- Manage the sitemap to understand application structure
+- Send requests to Repeater for manual testing and payload iteration
+
+**Important**: Burp Suite must be running with the MCP Server extension enabled for these tools to work. The MCP server runs on http://127.0.0.1:9876 by default.
+
+You can also proxy your Python requests through Burp Suite for visibility:
+\`\`\`python
+proxies = {'http': 'http://127.0.0.1:8080', 'https': 'http://127.0.0.1:8080'}
+r = requests.get('http://target.com', proxies=proxies, verify=False)
+\`\`\``,
+    },
   },
 };
 

@@ -189,6 +189,11 @@ export async function checkCommand(options: CheckOptions): Promise<void> {
       const { exec } = await import('../utils/shell.js');
       const result = await exec(`which ${server.command}`);
       installed = result.code === 0;
+    } else if (server.installMethod === 'external') {
+      // External servers are user-managed, show as "configured" if in platform config
+      // We can't check if Burp Suite is running, so just show it as user-managed
+      mcpStatus.push([server.displayName, chalk.dim('○ user-managed (install in Burp Suite)')]);
+      continue;
     }
     
     mcpStatus.push([server.displayName, formatOptional(installed)]);

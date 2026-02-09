@@ -212,6 +212,17 @@ export async function installMcpServer(serverName: string): Promise<McpInstallRe
     };
   }
 
+  // External servers are not installed by us - just configure the MCP client
+  if (server.installMethod === 'external') {
+    logger.success(`Configured ${server.displayName} (user-managed, not installed by MrZero)`);
+    return {
+      name: server.name,
+      installed: true,
+      skipped: false,
+      postInstallNotes: server.postInstallNotes,
+    };
+  }
+
   // Note: We no longer check prerequisites here since user explicitly chose to install
   // The warning about prerequisites is shown during MCP server selection
 
