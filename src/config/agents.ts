@@ -36,7 +36,7 @@ export const AGENTS: Record<string, AgentConfig> = {
     dockerTools: ['pwntools', 'ropper', 'one_gadget'],
     // GDB must be on host for pwndbg MCP server
     systemTools: ['gdb', 'checksec'],
-    mcpServers: ['pwndbg-mcp', 'ghidra-mcp', 'metasploit-mcp', 'ida-pro-mcp'],
+    mcpServers: ['pwndbg-mcp', 'ghidra-mcp', 'metasploit-mcp', 'ida-pro-mcp', 'burpsuite-mcp'],
   },
   MrZeroEnvBuilder: {
     name: 'MrZeroEnvBuilder',
