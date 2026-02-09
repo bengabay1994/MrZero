@@ -22,7 +22,7 @@ MrZero is a collection of specialized AI agents for vulnerability research, atta
 
 ### Required
 
-- **Linux** (Ubuntu 20.04+ recommended)
+- **Linux or macOS** (Ubuntu 20.04+ / macOS 12+ recommended)
 - **Docker** - for containerized security tools
 - **Node.js 18+** - for the installer (`npx`)
 - **Python 3.10+** - for Python-based tools
@@ -39,6 +39,7 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 - **Ghidra** - for reverse engineering
 - **Metasploit Framework** - for exploitation modules
 - **IDA Pro** - commercial disassembler (auto-detected if installed)
+- **Burp Suite** - web security testing proxy (Community or Professional edition)
 
 ## Quick Install
 
@@ -91,6 +92,22 @@ msfrpcd -P mrzero -S -a 127.0.0.1 -p 55553
 ```
 
 To use a different password, update the `MSF_PASSWORD` environment variable in your platform configuration.
+
+### Burp Suite MCP (for web application testing)
+
+The Burp Suite MCP server is **not installed by MrZero** - you must install it manually in Burp Suite:
+
+1. Open **Burp Suite** (Community or Professional edition)
+2. Go to the **Extensions** tab
+3. Click **BApp Store**
+4. Search for **"MCP Server"** and click **Install**
+5. Go to the **MCP** tab and ensure the server is enabled (default: `http://127.0.0.1:9876`)
+
+Once installed, MrZero will automatically configure your AI platform (OpenCode/Claude Code) to connect to the Burp Suite MCP server when you select it during `mrzero install`.
+
+> **Important:** Burp Suite must be running with the MCP Server extension loaded whenever you use MrZeroExploitDeveloper for web application targets.
+
+For more details, see the [official BApp Store page](https://portswigger.net/bappstore/9952290f04ed4f628e624d0aa9dccebc) and the [source code](https://github.com/PortSwigger/mcp-server).
 
 ## Usage
 
@@ -193,6 +210,7 @@ These tools run in a Docker container but are accessible via transparent shell w
 | `ghidra-mcp` | Ghidra | Reverse engineering |
 | `metasploit-mcp` | Metasploit | Exploitation framework |
 | `ida-pro-mcp` | IDA Pro | Disassembly (if IDA Pro detected) |
+| `burpsuite-mcp` | Burp Suite | Web security testing (user-managed, see [setup](#burp-suite-mcp-for-web-application-testing)) |
 
 ## Directory Structure
 
@@ -260,4 +278,5 @@ MIT License - see [LICENSE](LICENSE) for details.
 - [GhidraMCP](https://github.com/LaurieWired/GhidraMCP) - MCP server for Ghidra
 - [MetasploitMCP](https://github.com/GH05TCREW/MetasploitMCP) - MCP server for Metasploit
 - [ida-pro-mcp](https://github.com/mrexodia/ida-pro-mcp) - MCP server for IDA Pro
+- [Burp Suite MCP Server](https://github.com/PortSwigger/mcp-server) - MCP server for Burp Suite by PortSwigger
 - All the security tools integrated in this project
