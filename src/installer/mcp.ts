@@ -101,13 +101,21 @@ async function installGhidraMcp(): Promise<McpInstallResult> {
   // Download latest release for Ghidra extension
   logger.info('Downloading Ghidra extension...');
   const releaseResult = await exec(
-    `curl -s https://api.github.com/repos/LaurieWired/GhidraMCP/releases/latest | grep "browser_download_url.*zip" | cut -d '"' -f 4 | head -1`
+    `curl -s https://api.github.com/repos/LaurieWired/GhidraMCP/releases/latest`
   );
   
   if (releaseResult.code === 0 && releaseResult.stdout.trim()) {
-    const downloadUrl = releaseResult.stdout.trim();
-    const zipPath = path.join(repoPath, 'GhidraMCP-extension.zip');
-    await exec(`curl -sSL "${downloadUrl}" -o "${zipPath}"`);
+    try {
+      const releaseData = JSON.parse(releaseResult.stdout);
+      const zipAsset = releaseData.assets?.find((a: any) => a.name?.endsWith('.zip'));
+      if (zipAsset?.browser_download_url) {
+        const downloadUrl = zipAsset.browser_download_url;
+        const zipPath = path.join(repoPath, 'GhidraMCP-extension.zip');
+        await exec(`curl -sSL "${downloadUrl}" -o "${zipPath}"`);
+      }
+    } catch {
+      logger.warning('Failed to parse Ghidra release info, skipping extension download');
+    }
   }
 
   logger.success(`Installed ${server.displayName}`);

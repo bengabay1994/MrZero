@@ -2,7 +2,7 @@ import * as fs from 'fs';
 import enquirer from 'enquirer';
 import ora from 'ora';
 import { logger, formatStatus, formatOptional } from '../utils/logger.js';
-import { isLinux, isLinuxArm64, isMac } from '../utils/platform.js';
+import { isLinux, isLinuxArm64, isMac, isWindows } from '../utils/platform.js';
 import {
   detectSystemInfo,
   detectGdb,
@@ -83,14 +83,23 @@ async function showSystemInfo(): Promise<SystemInfo> {
   if (!systemInfo.python.installed) {
     logger.blank();
     logger.error('Python 3 is required but not installed.');
-    logger.info('Install Python: sudo apt-get install python3 python3-pip');
+    if (isWindows()) {
+      logger.info('Install Python: https://www.python.org/downloads/');
+      logger.info('  Or via winget: winget install Python.Python.3.12');
+    } else {
+      logger.info('Install Python: sudo apt-get install python3 python3-pip');
+    }
     process.exit(1);
   }
 
   if (!systemInfo.uv.installed) {
     logger.blank();
     logger.error('uv is required but not installed.');
-    logger.info('Install uv: curl -LsSf https://astral.sh/uv/install.sh | sh');
+    if (isWindows()) {
+      logger.info('Install uv: powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"');
+    } else {
+      logger.info('Install uv: curl -LsSf https://astral.sh/uv/install.sh | sh');
+    }
     process.exit(1);
   }
 
@@ -330,9 +339,8 @@ export async function installCommand(options: InstallOptions): Promise<void> {
   console.log('');
 
   // Check platform
-  if (!isLinux() && !isMac()) {
-    logger.warning('MrZero currently only supports Linux and macOS.');
-    logger.info('Windows support coming soon!');
+  if (!isLinux() && !isMac() && !isWindows()) {
+    logger.warning('MrZero currently only supports Linux, macOS, and Windows.');
     process.exit(1);
   }
 
@@ -396,8 +404,13 @@ export async function installCommand(options: InstallOptions): Promise<void> {
       logger.blank();
       logger.error('Failed to setup Docker image.');
       logger.error('Please ensure Docker is running and try again.');
-      logger.info('  On macOS: Open Docker Desktop');
-      logger.info('  On Linux: sudo systemctl start docker');
+      if (isWindows()) {
+        logger.info('  On Windows: Open Docker Desktop');
+      } else if (isMac()) {
+        logger.info('  On macOS: Open Docker Desktop');
+      } else {
+        logger.info('  On Linux: sudo systemctl start docker');
+      }
       process.exit(1);
     }
   }
@@ -436,8 +449,13 @@ export async function installCommand(options: InstallOptions): Promise<void> {
     logger.info('  mrzero claude       # Launch Claude Code with MrZero tools');
   } else {
     logger.info('To start using MrZero (manual PATH setup required):');
-    logger.info('  export PATH="$HOME/.local/bin/mrzero-tools:$PATH"');
-    logger.info('  opencode            # Or: claude');
+    if (isWindows()) {
+      logger.info('  set PATH=%LOCALAPPDATA%\\MrZero\\tools;%PATH%');
+      logger.info('  opencode            # Or: claude');
+    } else {
+      logger.info('  export PATH="$HOME/.local/bin/mrzero-tools:$PATH"');
+      logger.info('  opencode            # Or: claude');
+    }
   }
 
   logger.blank();

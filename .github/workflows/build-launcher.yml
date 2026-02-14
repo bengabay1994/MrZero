@@ -29,10 +29,9 @@ jobs:
           - goos: darwin
             goarch: arm64
             name: mrzero-darwin-arm64
-          # Windows support for future
-          # - goos: windows
-          #   goarch: amd64
-          #   name: mrzero-windows-amd64.exe
+          - goos: windows
+            goarch: amd64
+            name: mrzero-windows-amd64.exe
 
     steps:
       - name: Checkout repository

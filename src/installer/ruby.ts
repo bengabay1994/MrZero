@@ -4,6 +4,7 @@ import * as os from 'os';
 import { exec, runWithOutput } from '../utils/shell.js';
 import { logger } from '../utils/logger.js';
 import { RUBY_TOOLS } from '../config/tools.js';
+import { isWindows } from '../utils/platform.js';
 
 /**
  * Get the gem user bin directory dynamically based on the user's Ruby version
@@ -51,26 +52,35 @@ export async function createRubyWrapper(toolName: string): Promise<boolean> {
  */
 async function createWrapperFile(toolName: string, gemBinPath: string): Promise<boolean> {
   const wrapperDir = path.join(os.homedir(), '.local', 'bin');
-  const wrapperPath = path.join(wrapperDir, toolName);
+  const wrapperExt = isWindows() ? '.cmd' : '';
+  const wrapperPath = path.join(wrapperDir, `${toolName}${wrapperExt}`);
 
   // Ensure directory exists
   fs.mkdirSync(wrapperDir, { recursive: true });
 
-  // Write wrapper script
-  const wrapperContent = `#!/bin/bash
-exec "${gemBinPath}" "$@"
-`;
-
-  fs.writeFileSync(wrapperPath, wrapperContent, { mode: 0o755 });
+  // Write wrapper script (platform-specific)
+  let wrapperContent: string;
+  if (isWindows()) {
+    wrapperContent = `@echo off\r\n"${gemBinPath}" %*\r\n`;
+    fs.writeFileSync(wrapperPath, wrapperContent);
+  } else {
+    wrapperContent = `#!/bin/bash\nexec "${gemBinPath}" "$@"\n`;
+    fs.writeFileSync(wrapperPath, wrapperContent, { mode: 0o755 });
+  }
 
   // Check if ~/.local/bin is in PATH
   const localBin = path.join(os.homedir(), '.local', 'bin');
-  const pathDirs = (process.env.PATH || '').split(':');
+  const pathDirs = (process.env.PATH || '').split(path.delimiter);
 
   if (!pathDirs.includes(localBin)) {
     logger.warning(`~/.local/bin is not in your PATH`);
-    logger.info(`Add this to your shell config (~/.bashrc or ~/.zshrc):`);
-    logger.info(`  export PATH="$HOME/.local/bin:$PATH"`);
+    if (isWindows()) {
+      logger.info(`Add this directory to your PATH environment variable:`);
+      logger.info(`  ${localBin}`);
+    } else {
+      logger.info(`Add this to your shell config (~/.bashrc or ~/.zshrc):`);
+      logger.info(`  export PATH="$HOME/.local/bin:$PATH"`);
+    }
   }
 
   return true;
@@ -80,7 +90,8 @@ exec "${gemBinPath}" "$@"
  * Remove the wrapper script for a Ruby gem
  */
 export function removeRubyWrapper(toolName: string): boolean {
-  const wrapperPath = path.join(os.homedir(), '.local', 'bin', toolName);
+  const wrapperExt = isWindows() ? '.cmd' : '';
+  const wrapperPath = path.join(os.homedir(), '.local', 'bin', `${toolName}${wrapperExt}`);
   if (fs.existsSync(wrapperPath)) {
     fs.unlinkSync(wrapperPath);
     return true;
@@ -92,7 +103,8 @@ export function removeRubyWrapper(toolName: string): boolean {
  * Check if a wrapper exists for a Ruby gem
  */
 export function hasRubyWrapper(toolName: string): boolean {
-  const wrapperPath = path.join(os.homedir(), '.local', 'bin', toolName);
+  const wrapperExt = isWindows() ? '.cmd' : '';
+  const wrapperPath = path.join(os.homedir(), '.local', 'bin', `${toolName}${wrapperExt}`);
   return fs.existsSync(wrapperPath);
 }
 
@@ -109,7 +121,11 @@ export async function installRubyTool(toolName: string): Promise<boolean> {
   const rubyCheck = await exec('ruby --version');
   if (rubyCheck.code !== 0) {
     logger.error('Ruby is not installed. Please install Ruby first:');
-    logger.info('  sudo apt-get install ruby ruby-dev');
+    if (isWindows()) {
+      logger.info('  Download from https://rubyinstaller.org/');
+    } else {
+      logger.info('  sudo apt-get install ruby ruby-dev');
+    }
     return false;
   }
 

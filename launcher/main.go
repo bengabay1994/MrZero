@@ -3,8 +3,9 @@ package main
 import (
 	"fmt"
 	"os"
-	"os/exec"
+	osexec "os/exec"
 	"path/filepath"
+	"runtime"
 	"syscall"
 )
 
@@ -33,6 +34,20 @@ func main() {
 	}
 }
 
+// getToolsDir returns the platform-appropriate MrZero tools directory
+func getToolsDir(home string) string {
+	if runtime.GOOS == "windows" {
+		// Windows: %LOCALAPPDATA%\MrZero\tools
+		localAppData := os.Getenv("LOCALAPPDATA")
+		if localAppData == "" {
+			localAppData = filepath.Join(home, "AppData", "Local")
+		}
+		return filepath.Join(localAppData, "MrZero", "tools")
+	}
+	// Unix: ~/.local/bin/mrzero-tools
+	return filepath.Join(home, ".local", "bin", "mrzero-tools")
+}
+
 func launch(command string, args []string) {
 	home, err := os.UserHomeDir()
 	if err != nil {
@@ -40,7 +55,7 @@ func launch(command string, args []string) {
 		os.Exit(1)
 	}
 
-	toolsDir := filepath.Join(home, ".local", "bin", "mrzero-tools")
+	toolsDir := getToolsDir(home)
 
 	// Check if tools directory exists
 	if _, err := os.Stat(toolsDir); os.IsNotExist(err) {
@@ -55,19 +70,38 @@ func launch(command string, args []string) {
 	os.Setenv("PATH", newPath)
 
 	// Find the command in PATH
-	cmdPath, err := exec.LookPath(command)
+	cmdPath, err := osexec.LookPath(command)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: '%s' not found in PATH\n", command)
 		fmt.Fprintf(os.Stderr, "Please install %s first.\n", command)
 		os.Exit(1)
 	}
 
-	// Execute the command (replace current process)
-	argv := append([]string{command}, args...)
-	err = syscall.Exec(cmdPath, argv, os.Environ())
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: Failed to execute %s: %v\n", command, err)
-		os.Exit(1)
+	if runtime.GOOS == "windows" {
+		// On Windows, syscall.Exec is not available.
+		// Spawn the child process and wait for it to complete.
+		cmd := osexec.Command(cmdPath, args...)
+		cmd.Stdin = os.Stdin
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		cmd.Env = os.Environ()
+
+		err = cmd.Run()
+		if err != nil {
+			if exitErr, ok := err.(*osexec.ExitError); ok {
+				os.Exit(exitErr.ExitCode())
+			}
+			fmt.Fprintf(os.Stderr, "Error: Failed to execute %s: %v\n", command, err)
+			os.Exit(1)
+		}
+	} else {
+		// On Unix, replace the current process (more efficient)
+		argv := append([]string{command}, args...)
+		err = syscall.Exec(cmdPath, argv, os.Environ())
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error: Failed to execute %s: %v\n", command, err)
+			os.Exit(1)
+		}
 	}
 }
 
