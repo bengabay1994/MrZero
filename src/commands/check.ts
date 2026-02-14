@@ -2,7 +2,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import chalk from 'chalk';
 import { logger, formatStatus, formatOptional } from '../utils/logger.js';
-import { isLinuxArm64 } from '../utils/platform.js';
+import { isLinuxArm64, isWindows } from '../utils/platform.js';
 import {
   detectSystemInfo,
   detectGdb,
@@ -171,7 +171,8 @@ export async function checkCommand(options: CheckOptions): Promise<void> {
     if (server.installMethod === 'uv-tool') {
       // Check if command exists
       const { exec } = await import('../utils/shell.js');
-      const result = await exec(`which ${server.command}`);
+      const whichCmd = isWindows() ? `where ${server.command}` : `which ${server.command}`;
+      const result = await exec(whichCmd);
       installed = result.code === 0;
     } else if (server.installMethod === 'clone') {
       // Check if directory exists
@@ -187,7 +188,8 @@ export async function checkCommand(options: CheckOptions): Promise<void> {
     } else if (server.installMethod === 'uv-pip') {
       // Check if command exists
       const { exec } = await import('../utils/shell.js');
-      const result = await exec(`which ${server.command}`);
+      const whichCmd = isWindows() ? `where ${server.command}` : `which ${server.command}`;
+      const result = await exec(whichCmd);
       installed = result.code === 0;
     } else if (server.installMethod === 'external') {
       // External servers are user-managed, show as "configured" if in platform config

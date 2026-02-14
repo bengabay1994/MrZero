@@ -2,7 +2,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as https from 'https';
 import { logger } from '../utils/logger.js';
-import { getLauncherPath, getLauncherBinaryName, getPackageVersion } from '../utils/platform.js';
+import { getLauncherPath, getLauncherBinaryName, getPackageVersion, isWindows, getWrappersDir, getLauncherDir } from '../utils/platform.js';
 
 const LAUNCHER_REPO = 'bengabay1994/MrZero';
 
@@ -88,6 +88,22 @@ export async function downloadLauncher(): Promise<boolean> {
     }
 
     logger.success(`Installed launcher to ${launcherPath}`);
+    
+    // On Windows, check if the launcher directory is in PATH
+    if (isWindows()) {
+      const binDir = getLauncherDir();
+      const pathEnv = process.env.PATH || '';
+      if (!pathEnv.toLowerCase().includes(binDir.toLowerCase())) {
+        logger.blank();
+        logger.info(`To use 'mrzero' from any terminal, add this to your system PATH:`);
+        logger.info(`  ${binDir}`);
+        logger.info('');
+        logger.info('You can add it via: Settings > System > About > Advanced system settings > Environment Variables');
+        logger.info('Or run in an admin PowerShell:');
+        logger.info(`  [Environment]::SetEnvironmentVariable("Path", $env:Path + ";${binDir}", "User")`);
+      }
+    }
+    
     return true;
   } catch (error) {
     logger.error(`Failed to download launcher: ${error}`);
@@ -97,9 +113,19 @@ export async function downloadLauncher(): Promise<boolean> {
     logger.warning('precedence over MrZero\'s containerized tools, which could cause');
     logger.warning('unexpected behavior.');
     logger.blank();
-    logger.info('You can still use MrZero tools by manually setting your PATH:');
-    logger.info('  export PATH="$HOME/.local/bin/mrzero-tools:$PATH"');
-    logger.info('Then run opencode or claude directly.');
+    if (isWindows()) {
+      const wrappersDir = getWrappersDir();
+      logger.info('You can still use MrZero tools by manually adding to your PATH:');
+      logger.info(`  set PATH=${wrappersDir};%PATH%`);
+      logger.info('Then run opencode or claude directly.');
+      logger.blank();
+      logger.info('To make it permanent, add this directory to your system PATH:');
+      logger.info(`  ${wrappersDir}`);
+    } else {
+      logger.info('You can still use MrZero tools by manually setting your PATH:');
+      logger.info('  export PATH="$HOME/.local/bin/mrzero-tools:$PATH"');
+      logger.info('Then run opencode or claude directly.');
+    }
     return false;
   }
 }

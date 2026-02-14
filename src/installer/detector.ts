@@ -2,7 +2,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 import { exec, commandExists } from '../utils/shell.js';
-import { getHomeDir } from '../utils/platform.js';
+import { getHomeDir, getWrappersDir, isWindows } from '../utils/platform.js';
 
 export interface SystemInfo {
   os: string;
@@ -56,9 +56,18 @@ async function detectDocker(): Promise<{ installed: boolean; version?: string }>
 }
 
 async function detectPython(): Promise<{ installed: boolean; version?: string }> {
-  const result = await exec('python3 --version');
+  // On Windows, Python is typically just 'python', not 'python3'
+  const pythonCmd = isWindows() ? 'python --version' : 'python3 --version';
+  const result = await exec(pythonCmd);
   if (result.code === 0) {
     const match = result.stdout.match(/Python ([\d.]+)/);
+    return { installed: true, version: match?.[1] };
+  }
+  // Fallback: try the other variant
+  const fallbackCmd = isWindows() ? 'python3 --version' : 'python --version';
+  const fallbackResult = await exec(fallbackCmd);
+  if (fallbackResult.code === 0) {
+    const match = fallbackResult.stdout.match(/Python ([\d.]+)/);
     return { installed: true, version: match?.[1] };
   }
   return { installed: false };
@@ -92,6 +101,11 @@ async function detectGit(): Promise<{ installed: boolean; version?: string }> {
 }
 
 async function detectLinuxDistro(): Promise<string | null> {
+  if (isWindows()) {
+    // Return Windows version info
+    return `Windows ${os.release()}`;
+  }
+  
   try {
     const releaseFile = '/etc/os-release';
     if (fs.existsSync(releaseFile)) {
@@ -117,38 +131,45 @@ export async function detectGdb(): Promise<ToolStatus> {
 export async function detectPwndbg(): Promise<ToolStatus> {
   // Method 1: Check for standalone pwndbg binary
   if (await commandExists('pwndbg')) {
-    const result = await exec('which pwndbg');
-    return { name: 'pwndbg', installed: true, method: 'binary', path: result.stdout.trim() };
+    const whichCmd = isWindows() ? 'where pwndbg' : 'which pwndbg';
+    const result = await exec(whichCmd);
+    return { name: 'pwndbg', installed: true, method: 'binary', path: result.stdout.trim().split('\n')[0] };
   }
 
-  // Method 2: Check .gdbinit for pwndbg source line
-  const gdbinit = path.join(getHomeDir(), '.gdbinit');
-  if (fs.existsSync(gdbinit)) {
-    const content = fs.readFileSync(gdbinit, 'utf-8');
-    const match = content.match(/source\s+(.+pwndbg[^\s]*gdbinit\.py)/i);
-    if (match) {
-      return { name: 'pwndbg', installed: true, method: 'gdbinit-source', path: match[1] };
-    }
-    if (content.toLowerCase().includes('pwndbg')) {
-      return { name: 'pwndbg', installed: true, method: 'gdbinit-reference' };
+  // Method 2: Check .gdbinit for pwndbg source line (not applicable on Windows typically)
+  if (!isWindows()) {
+    const gdbinit = path.join(getHomeDir(), '.gdbinit');
+    if (fs.existsSync(gdbinit)) {
+      const content = fs.readFileSync(gdbinit, 'utf-8');
+      const match = content.match(/source\s+(.+pwndbg[^\s]*gdbinit\.py)/i);
+      if (match) {
+        return { name: 'pwndbg', installed: true, method: 'gdbinit-source', path: match[1] };
+      }
+      if (content.toLowerCase().includes('pwndbg')) {
+        return { name: 'pwndbg', installed: true, method: 'gdbinit-reference' };
+      }
     }
   }
 
-  // Method 3: Run gdb and check if pwndbg banner appears
-  try {
-    const result = await exec('echo "quit" | gdb -q 2>&1', { timeout: 5000 });
-    const output = result.stdout + result.stderr;
-    if (output.toLowerCase().includes('pwndbg')) {
-      return { name: 'pwndbg', installed: true, method: 'gdb-plugin' };
-    }
-  } catch {}
+  // Method 3: Run gdb and check if pwndbg banner appears (Unix only)
+  if (!isWindows()) {
+    try {
+      const result = await exec('echo "quit" | gdb -q 2>&1', { timeout: 5000 });
+      const output = result.stdout + result.stderr;
+      if (output.toLowerCase().includes('pwndbg')) {
+        return { name: 'pwndbg', installed: true, method: 'gdb-plugin' };
+      }
+    } catch {}
+  }
 
   // Method 4: Check common installation paths
   const commonPaths = [
     path.join(getHomeDir(), '.pwndbg', 'gdbinit.py'),
     path.join(getHomeDir(), 'pwndbg', 'gdbinit.py'),
-    '/opt/pwndbg/gdbinit.py',
-    path.join(getHomeDir(), 'Desktop', 'repos', 'pwndbg', 'gdbinit.py'),
+    ...(isWindows() ? [] : [
+      '/opt/pwndbg/gdbinit.py',
+      path.join(getHomeDir(), 'Desktop', 'repos', 'pwndbg', 'gdbinit.py'),
+    ]),
     path.join(getHomeDir(), 'tools', 'pwndbg', 'gdbinit.py'),
   ];
 
@@ -165,18 +186,27 @@ export async function detectPwndbg(): Promise<ToolStatus> {
 export async function detectGhidra(): Promise<ToolStatus> {
   // Check for ghidraRun in PATH
   if (await commandExists('ghidraRun')) {
-    const result = await exec('which ghidraRun');
-    return { name: 'ghidra', installed: true, path: result.stdout.trim() };
+    const whichCmd = isWindows() ? 'where ghidraRun' : 'which ghidraRun';
+    const result = await exec(whichCmd);
+    return { name: 'ghidra', installed: true, path: result.stdout.trim().split('\n')[0] };
   }
 
   // Check common installation paths
   const commonPaths = [
-    '/opt/ghidra',
-    '/opt/ghidra_*',
-    path.join(getHomeDir(), 'ghidra'),
-    path.join(getHomeDir(), 'ghidra_*'),
-    '/usr/local/ghidra',
-    '/usr/share/ghidra',
+    ...(isWindows() ? [
+      // Windows common paths
+      path.join(process.env.ProgramFiles || 'C:\\Program Files', 'Ghidra'),
+      path.join(getHomeDir(), 'ghidra'),
+      path.join(getHomeDir(), 'ghidra_*'),
+    ] : [
+      // Unix common paths
+      '/opt/ghidra',
+      '/opt/ghidra_*',
+      path.join(getHomeDir(), 'ghidra'),
+      path.join(getHomeDir(), 'ghidra_*'),
+      '/usr/local/ghidra',
+      '/usr/share/ghidra',
+    ]),
   ];
 
   for (const pattern of commonPaths) {
@@ -202,13 +232,19 @@ export async function detectGhidra(): Promise<ToolStatus> {
 // Metasploit detection
 export async function detectMetasploit(): Promise<ToolStatus> {
   if (await commandExists('msfconsole')) {
-    const result = await exec('msfconsole --version 2>/dev/null || echo ""');
+    const versionCmd = isWindows()
+      ? 'msfconsole --version 2>nul'
+      : 'msfconsole --version 2>/dev/null || echo ""';
+    const result = await exec(versionCmd);
     const match = result.stdout.match(/Framework Version: ([\d.]+)/);
     return { name: 'metasploit', installed: true, version: match?.[1] };
   }
 
   // Check common paths
-  const commonPaths = [
+  const commonPaths = isWindows() ? [
+    path.join(process.env.ProgramFiles || 'C:\\Program Files', 'Metasploit'),
+    path.join(getHomeDir(), 'metasploit-framework'),
+  ] : [
     '/opt/metasploit-framework',
     '/usr/share/metasploit-framework',
     path.join(getHomeDir(), 'metasploit-framework'),
@@ -227,13 +263,20 @@ export async function detectMetasploit(): Promise<ToolStatus> {
 export async function detectIdaPro(): Promise<ToolStatus> {
   // IDA Pro has idat64 (text mode batch processing) which IDA Free does NOT have
   // This is the key differentiator between Pro and Free
-  if (await commandExists('idat64')) {
-    const result = await exec('which idat64');
-    return { name: 'ida-pro', installed: true, method: 'pro', path: result.stdout.trim() };
+  const idatBin = isWindows() ? 'idat64.exe' : 'idat64';
+  if (await commandExists(isWindows() ? 'idat64.exe' : 'idat64')) {
+    const whichCmd = isWindows() ? `where ${idatBin}` : `which ${idatBin}`;
+    const result = await exec(whichCmd);
+    return { name: 'ida-pro', installed: true, method: 'pro', path: result.stdout.trim().split('\n')[0] };
   }
 
   // Check common installation paths for IDA Pro specific indicators
-  const proPaths = [
+  const proPaths = isWindows() ? [
+    path.join(process.env.ProgramFiles || 'C:\\Program Files', 'IDA Pro'),
+    path.join(process.env['ProgramFiles(x86)'] || 'C:\\Program Files (x86)', 'IDA Pro'),
+    path.join(getHomeDir(), 'idapro'),
+    path.join(getHomeDir(), 'ida-pro'),
+  ] : [
     '/opt/idapro',
     '/opt/ida-pro',
     path.join(getHomeDir(), 'idapro'),
@@ -243,7 +286,8 @@ export async function detectIdaPro(): Promise<ToolStatus> {
   for (const p of proPaths) {
     if (fs.existsSync(p)) {
       // Check if idat64 exists in this directory (Pro indicator)
-      const idat64Path = path.join(p, 'idat64');
+      const idat64Bin = isWindows() ? 'idat64.exe' : 'idat64';
+      const idat64Path = path.join(p, idat64Bin);
       if (fs.existsSync(idat64Path)) {
         return { name: 'ida-pro', installed: true, method: 'pro', path: p };
       }
@@ -251,7 +295,10 @@ export async function detectIdaPro(): Promise<ToolStatus> {
   }
 
   // Check for generic IDA paths but verify it's Pro version
-  const genericPaths = [
+  const genericPaths = isWindows() ? [
+    path.join(process.env.ProgramFiles || 'C:\\Program Files', 'IDA*'),
+    path.join(getHomeDir(), 'ida*'),
+  ] : [
     '/opt/ida*',
     path.join(getHomeDir(), 'ida*'),
   ];
@@ -266,7 +313,8 @@ export async function detectIdaPro(): Promise<ToolStatus> {
           if (entry.toLowerCase().startsWith(base.toLowerCase())) {
             const fullPath = path.join(dir, entry);
             // Check if idat64 exists (Pro indicator)
-            const idat64Path = path.join(fullPath, 'idat64');
+            const idat64Bin = isWindows() ? 'idat64.exe' : 'idat64';
+            const idat64Path = path.join(fullPath, idat64Bin);
             if (fs.existsSync(idat64Path)) {
               return { name: 'ida-pro', installed: true, method: 'pro', path: fullPath };
             }
@@ -283,13 +331,20 @@ export async function detectIdaPro(): Promise<ToolStatus> {
 // IDA Free detection (separate from Pro)
 export async function detectIdaFree(): Promise<ToolStatus> {
   // Check for ida64 binary (present in both Free and Pro, but we check this after Pro detection fails)
-  if (await commandExists('ida64')) {
-    const result = await exec('which ida64');
-    return { name: 'ida-free', installed: true, path: result.stdout.trim() };
+  const ida64Bin = isWindows() ? 'ida64.exe' : 'ida64';
+  if (await commandExists(ida64Bin)) {
+    const whichCmd = isWindows() ? `where ${ida64Bin}` : `which ${ida64Bin}`;
+    const result = await exec(whichCmd);
+    return { name: 'ida-free', installed: true, path: result.stdout.trim().split('\n')[0] };
   }
 
   // Check common installation paths for IDA Free
-  const freePaths = [
+  const freePaths = isWindows() ? [
+    path.join(process.env.ProgramFiles || 'C:\\Program Files', 'IDA Free*'),
+    path.join(process.env['ProgramFiles(x86)'] || 'C:\\Program Files (x86)', 'IDA Free*'),
+    path.join(getHomeDir(), 'idafree*'),
+    path.join(getHomeDir(), 'ida-free*'),
+  ] : [
     '/opt/idafree*',
     '/opt/ida-free*',
     path.join(getHomeDir(), 'idafree*'),
@@ -331,7 +386,8 @@ export async function detectPythonPackage(packageName: string): Promise<ToolStat
   }
   
   // Fallback to Python import check
-  const result = await exec(`python3 -c "import ${packageName.replace('-', '_')}" 2>&1`);
+  const pythonCmd = isWindows() ? 'python' : 'python3';
+  const result = await exec(`${pythonCmd} -c "import ${packageName.replace('-', '_')}" 2>&1`);
   if (result.code === 0) {
     return { name: packageName, installed: true };
   }
@@ -349,26 +405,31 @@ export async function detectRubyGem(gemName: string): Promise<ToolStatus & { cal
   }
 
   // Check if callable via PATH (wrapper exists and works)
-  const callableResult = await exec(`command -v ${gemName}`);
+  const callableCmd = isWindows() ? `where ${gemName}` : `command -v ${gemName}`;
+  const callableResult = await exec(callableCmd);
   const isCallable = callableResult.code === 0;
 
   return {
     name: gemName,
     installed: true,
     callable: isCallable,
-    path: isCallable ? callableResult.stdout.trim() : undefined,
+    path: isCallable ? callableResult.stdout.trim().split('\n')[0] : undefined,
   };
 }
 
 // Check if Docker image exists
 export async function detectDockerImage(imageName: string): Promise<boolean> {
-  const result = await exec(`docker image inspect ${imageName} 2>/dev/null`);
+  const nullDev = isWindows() ? '2>nul' : '2>/dev/null';
+  const result = await exec(`docker image inspect ${imageName} ${nullDev}`);
   return result.code === 0;
 }
 
-// Check if CLI wrapper exists in ~/.local/bin/mrzero-tools
+// Check if CLI wrapper exists in the wrappers directory
 export async function detectWrapper(wrapperName: string): Promise<boolean> {
-  const wrapperPath = path.join(getHomeDir(), '.local', 'bin', 'mrzero-tools', wrapperName);
+  const wrappersDir = getWrappersDir();
+  // On Windows, wrappers are .cmd files
+  const wrapperExt = isWindows() ? '.cmd' : '';
+  const wrapperPath = path.join(wrappersDir, `${wrapperName}${wrapperExt}`);
   if (!fs.existsSync(wrapperPath)) {
     return false;
   }
@@ -384,7 +445,7 @@ export async function detectWrapper(wrapperName: string): Promise<boolean> {
     
     // Read the file and check if it contains our Docker image marker
     const content = fs.readFileSync(wrapperPath, 'utf-8');
-    return content.includes('mrzero') || content.includes('MRZERO');
+    return content.includes('mrzero') || content.includes('MRZERO') || content.includes('MrZero');
   } catch {
     return false;
   }
@@ -392,9 +453,10 @@ export async function detectWrapper(wrapperName: string): Promise<boolean> {
 
 // Check if a native CLI tool is installed (not wrapper, actual tool in PATH)
 export async function detectNativeTool(toolName: string): Promise<ToolStatus> {
-  const result = await exec(`which ${toolName} 2>/dev/null`);
+  const whichCmd = isWindows() ? `where ${toolName} 2>nul` : `which ${toolName} 2>/dev/null`;
+  const result = await exec(whichCmd);
   if (result.code === 0) {
-    const toolPath = result.stdout.trim();
+    const toolPath = result.stdout.trim().split('\n')[0];
     return { 
       name: toolName, 
       installed: true, 

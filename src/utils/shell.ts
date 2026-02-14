@@ -30,7 +30,9 @@ export async function exec(
 }
 
 export async function commandExists(command: string): Promise<boolean> {
-  const result = await exec(`which ${command}`);
+  // Use 'where' on Windows, 'which' on Unix
+  const checkCmd = process.platform === 'win32' ? `where ${command}` : `which ${command}`;
+  const result = await exec(checkCmd);
   return result.code === 0 && result.stdout.trim().length > 0;
 }
 

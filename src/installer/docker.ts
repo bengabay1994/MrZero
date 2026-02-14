@@ -3,14 +3,15 @@ import * as path from 'path';
 import { fileURLToPath } from 'url';
 import { exec, runWithOutput } from '../utils/shell.js';
 import { logger } from '../utils/logger.js';
-import { getHomeDir, getMrZeroDir, getWrappersDir } from '../utils/platform.js';
+import { getHomeDir, getMrZeroDir, getWrappersDir, isWindows } from '../utils/platform.js';
 import { DOCKER_IMAGE, DOCKER_TOOLS } from '../config/tools.js';
 
 // ESM doesn't have __dirname, so we create it
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const WRAPPER_TEMPLATE = `#!/bin/bash
+// Unix bash wrapper template
+const WRAPPER_TEMPLATE_UNIX = `#!/bin/bash
 # MrZero wrapper for {{TOOL_NAME}}
 # Transparently runs {{TOOL_NAME}} in Docker container
 
@@ -37,8 +38,34 @@ docker run --rm \\
     {{TOOL_COMMAND}} "$@"
 `;
 
-// Special wrapper for linguist which needs git safe.directory config
-const LINGUIST_WRAPPER_TEMPLATE = `#!/bin/bash
+// Windows .cmd wrapper template
+// Note: On Docker Desktop for Windows, --network host is not supported.
+// We omit it; Docker Desktop automatically handles host networking via NAT.
+const WRAPPER_TEMPLATE_WINDOWS = `@echo off
+REM MrZero wrapper for {{TOOL_NAME}}
+REM Transparently runs {{TOOL_NAME}} in Docker container
+
+set MRZERO_IMAGE=${DOCKER_IMAGE}
+
+REM Check if Docker is running
+docker info >nul 2>&1
+if errorlevel 1 (
+    echo Error: Docker is not running. Please start Docker Desktop first. >&2
+    exit /b 1
+)
+
+REM Run the tool in container with current directory mounted
+docker run --rm ^
+    --entrypoint "" ^
+    -e PYTHONIOENCODING=utf-8 ^
+    -v "%cd%":/workspace ^
+    -w /workspace ^
+    "%MRZERO_IMAGE%" ^
+    {{TOOL_COMMAND}} %*
+`;
+
+// Special wrapper for linguist which needs git safe.directory config (Unix)
+const LINGUIST_WRAPPER_TEMPLATE_UNIX = `#!/bin/bash
 # MrZero wrapper for linguist
 # Transparently runs github-linguist in Docker container
 
@@ -61,6 +88,30 @@ docker run --rm \\
     -w /workspace \\
     "$MRZERO_IMAGE" \\
     bash -c 'git config --global --add safe.directory /workspace 2>/dev/null; github-linguist "$@"' _ "$@"
+`;
+
+// Special wrapper for linguist (Windows)
+const LINGUIST_WRAPPER_TEMPLATE_WINDOWS = `@echo off
+REM MrZero wrapper for linguist
+REM Transparently runs github-linguist in Docker container
+
+set MRZERO_IMAGE=${DOCKER_IMAGE}
+
+REM Check if Docker is running
+docker info >nul 2>&1
+if errorlevel 1 (
+    echo Error: Docker is not running. Please start Docker Desktop first. >&2
+    exit /b 1
+)
+
+REM Run linguist in container with current directory mounted
+docker run --rm ^
+    --entrypoint "" ^
+    -e PYTHONIOENCODING=utf-8 ^
+    -v "%cd%":/workspace ^
+    -w /workspace ^
+    "%MRZERO_IMAGE%" ^
+    bash -c "git config --global --add safe.directory /workspace 2>/dev/null; github-linguist %*"
 `;
 
 /**
@@ -141,7 +192,9 @@ export async function createWrapperScript(toolName: string): Promise<boolean> {
   
   const wrappersDir = getWrappersDir();
   const wrapperName = tool.wrapperName || toolName;
-  const wrapperPath = path.join(wrappersDir, wrapperName);
+  // On Windows, wrapper scripts are .cmd files
+  const wrapperExt = isWindows() ? '.cmd' : '';
+  const wrapperPath = path.join(wrappersDir, `${wrapperName}${wrapperExt}`);
   
   // Ensure wrappers directory exists
   fs.mkdirSync(wrappersDir, { recursive: true });
@@ -150,7 +203,7 @@ export async function createWrapperScript(toolName: string): Promise<boolean> {
   
   // Linguist needs special handling for git safe.directory
   if (toolName === 'linguist') {
-    wrapperContent = LINGUIST_WRAPPER_TEMPLATE;
+    wrapperContent = isWindows() ? LINGUIST_WRAPPER_TEMPLATE_WINDOWS : LINGUIST_WRAPPER_TEMPLATE_UNIX;
   } else {
     // Generate wrapper content for other tools
     let toolCommand = wrapperName;
@@ -167,13 +220,19 @@ export async function createWrapperScript(toolName: string): Promise<boolean> {
         toolCommand = wrapperName;
     }
     
-    wrapperContent = WRAPPER_TEMPLATE
+    const template = isWindows() ? WRAPPER_TEMPLATE_WINDOWS : WRAPPER_TEMPLATE_UNIX;
+    wrapperContent = template
       .replace(/{{TOOL_NAME}}/g, wrapperName)
       .replace(/{{TOOL_COMMAND}}/g, toolCommand);
   }
   
   try {
-    fs.writeFileSync(wrapperPath, wrapperContent, { mode: 0o755 });
+    if (isWindows()) {
+      // Windows doesn't use Unix file permissions
+      fs.writeFileSync(wrapperPath, wrapperContent);
+    } else {
+      fs.writeFileSync(wrapperPath, wrapperContent, { mode: 0o755 });
+    }
     logger.success(`Created wrapper: ${wrapperPath}`);
     return true;
   } catch (error) {
@@ -205,9 +264,10 @@ export async function createAllWrappers(tools: string[]): Promise<void> {
 
 export async function removeWrappers(tools: string[]): Promise<void> {
   const wrappersDir = getWrappersDir();
+  const wrapperExt = isWindows() ? '.cmd' : '';
   
   for (const tool of tools) {
-    const wrapperPath = path.join(wrappersDir, tool);
+    const wrapperPath = path.join(wrappersDir, `${tool}${wrapperExt}`);
     if (fs.existsSync(wrapperPath)) {
       try {
         fs.unlinkSync(wrapperPath);

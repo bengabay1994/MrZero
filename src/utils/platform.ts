@@ -42,11 +42,26 @@ export function getMcpServersDir(): string {
 }
 
 export function getWrappersDir(): string {
+  if (isWindows()) {
+    // Windows: %LOCALAPPDATA%\MrZero\tools
+    const localAppData = process.env.LOCALAPPDATA || path.join(getHomeDir(), 'AppData', 'Local');
+    return path.join(localAppData, 'MrZero', 'tools');
+  }
   return path.join(getHomeDir(), '.local', 'bin', 'mrzero-tools');
 }
 
+export function getLauncherDir(): string {
+  if (isWindows()) {
+    // Windows: %LOCALAPPDATA%\MrZero\bin
+    const localAppData = process.env.LOCALAPPDATA || path.join(getHomeDir(), 'AppData', 'Local');
+    return path.join(localAppData, 'MrZero', 'bin');
+  }
+  return path.join(getHomeDir(), '.local', 'bin');
+}
+
 export function getLauncherPath(): string {
-  return path.join(getHomeDir(), '.local', 'bin', 'mrzero');
+  const ext = isWindows() ? '.exe' : '';
+  return path.join(getLauncherDir(), `mrzero${ext}`);
 }
 
 export function getLauncherBinaryName(): string {
@@ -76,6 +91,11 @@ export function getLauncherBinaryName(): string {
 }
 
 export function getClaudeConfigDir(): string {
+  if (isWindows()) {
+    // Claude Code on Windows uses %APPDATA%\Claude
+    const appData = process.env.APPDATA || path.join(getHomeDir(), 'AppData', 'Roaming');
+    return path.join(appData, 'Claude');
+  }
   return path.join(getHomeDir(), '.claude');
 }
 
@@ -84,6 +104,11 @@ export function getClaudeAgentsDir(): string {
 }
 
 export function getOpenCodeConfigDir(): string {
+  if (isWindows()) {
+    // OpenCode on Windows uses %APPDATA%\opencode
+    const appData = process.env.APPDATA || path.join(getHomeDir(), 'AppData', 'Roaming');
+    return path.join(appData, 'opencode');
+  }
   return path.join(getHomeDir(), '.config', 'opencode');
 }
 
@@ -92,6 +117,13 @@ export function getOpenCodeAgentsDir(): string {
 }
 
 export function getDistroInfo(): { name: string; version: string } | null {
+  if (isWindows()) {
+    return {
+      name: 'Windows',
+      version: os.release(),
+    };
+  }
+  
   if (!isLinux()) return null;
   
   try {
